@@ -149,6 +149,10 @@ This project is open source. See the LICENSE file for details.
 - **NHL API**: https://statsapi.web.nhl.com/
 - **Documentation**: See the `docs/mdc/` directory for detailed specifications
 
+## 🙏 Credits
+
+This project was inspired by and references the excellent [NHL API Reference](https://github.com/Zmalski/NHL-API-Reference) by [@Zmalski](https://github.com/Zmalski), which serves as the unofficial reference for NHL API endpoints. Their comprehensive documentation of the NHL APIs has been invaluable in understanding the available endpoints and data structures.
+
 ---
 
 **Note**: This project is in active development. The API and documentation may change as the project evolves.
