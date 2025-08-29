@@ -1,0 +1,2327 @@
+
+---
+description: "NHL API Specification - Complete documentation of NHL API endpoints, data structures, and usage examples"
+globs: ["**/*.py", "src/nhl_api/**/*.py", "tests/**/*.py", "data/**/*"]
+alwaysApply: true
+---
+
+# NHL API Specification
+
+## Base URLs
+- **Web API**: `https://api-web.nhle.com/v1` (Game data, schedules, live feeds)
+- **Stats API**: `https://api.nhle.com/stats/rest/v1` (Statistics, standings, player data)
+
+## Core Endpoints
+
+### Teams
+- `GET /stats/rest/en/team` - Get all teams (Stats API)
+- `GET /stats/rest/en/team/id/{id}` - Get specific team by ID
+- `GET /stats/rest/en/team/summary` - Get team statistics
+- `GET /stats/rest/en/team/{report}` - Get team reports (summary, etc.)
+
+### Players
+- `GET /stats/rest/en/skater/summary` - Get skater statistics
+- `GET /stats/rest/en/goalie/summary` - Get goalie statistics
+- `GET /stats/rest/en/skater/{report}` - Get skater reports
+- `GET /stats/rest/en/goalie/{report}` - Get goalie reports
+- `GET /stats/rest/en/leaders/skaters/{attribute}` - Get skater leaders
+- `GET /stats/rest/en/leaders/goalies/{attribute}` - Get goalie leaders
+
+### Games
+- `GET /schedule/{date}` - Get games for specific date (Web API)
+- `GET /gamecenter/{gameId}/boxscore` - Get game boxscore
+- `GET /gamecenter/{gameId}/play-by-play` - Get play-by-play data
+- `GET /gamecenter/{gameId}/landing` - Get game landing page data
+- `GET /gamecenter/{gameId}/right-rail` - Get game right-rail data (season series, officials, scratches, etc.)
+- `GET /gamecenter/{gameId}/feed/live` - Get live game feed (if available)
+
+### Team Rosters
+- `GET /roster/{teamAbbrev}/current` - Get current team roster
+- `GET /roster/{teamAbbrev}/{season}` - Get team roster for specific season
+
+### Supplementary Reports
+- `GET /gamecenter/{gameId}/story` - Get game story/recap (if available)
+- `GET /gamecenter/{gameId}/linescore` - Get game linescore
+- `GET /gamecenter/{gameId}/scoring` - Get scoring summary
+
+## HTML Reports (Referenced in right-rail data)
+
+The NHL provides comprehensive HTML reports for each game that contain detailed statistics and information. These reports are accessible via direct URLs and are referenced in the `gameReports` section of the right-rail data.
+
+### HTML Report Endpoints
+
+#### Base URL Pattern
+```
+https://www.nhl.com/scores/htmlreports/{season}/{reportType}{gameId}.HTM
+```
+
+Where:
+- `{season}`: Season identifier (e.g., `20242025` for 2024-2025 season)
+- `{reportType}`: Report type code (see below)
+- `{gameId}`: Game ID (e.g., `020489` for game 2024020489)
+
+#### Available Report Types
+
+| Report Type | Code | Description | Content |
+|-------------|------|-------------|---------|
+| Game Summary | `GS` | Overall game summary and key statistics | Final score, period breakdown, team stats |
+| Event Summary | `ES` | Detailed event log and penalties | All game events, penalties, timeouts |
+| Play-by-Play | `PL` | Complete play-by-play description | Detailed description of every play |
+| Faceoff Summary | `FS` | Faceoff statistics by player | Faceoff wins/losses, percentages |
+| Faceoff Comparison | `FC` | Faceoff comparison between teams | Team faceoff statistics |
+| Rosters | `RO` | Complete team rosters | Player information, lineups |
+| Shot Summary | `SS` | Shot statistics and locations | Shot attempts, goals, saves |
+| Time on Ice | `TO` | Player time on ice statistics | TOI for each player |
+
+#### Shift Charts
+```
+https://www.nhl.com/stats/shiftcharts?id={gameId}
+```
+
+### HTML Report Examples
+
+#### Example Game: NYI vs CHI (Game ID: 2024020489)
+**Season**: 20242025  
+**Game ID**: 020489
+
+#### Curl Examples for HTML Reports
+
+```bash
+# Game Summary
+curl "https://www.nhl.com/scores/htmlreports/20242025/GS020489.HTM"
+
+# Event Summary
+curl "https://www.nhl.com/scores/htmlreports/20242025/ES020489.HTM"
+
+# Play-by-Play
+curl "https://www.nhl.com/scores/htmlreports/20242025/PL020489.HTM"
+
+# Faceoff Summary
+curl "https://www.nhl.com/scores/htmlreports/20242025/FS020489.HTM"
+
+# Faceoff Comparison
+curl "https://www.nhl.com/scores/htmlreports/20242025/FC020489.HTM"
+
+# Rosters
+curl "https://www.nhl.com/scores/htmlreports/20242025/RO020489.HTM"
+
+# Shot Summary
+curl "https://www.nhl.com/scores/htmlreports/20242025/SS020489.HTM"
+
+# Time on Ice
+curl "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM"
+
+# Shift Charts
+curl "https://www.nhl.com/stats/shiftcharts?id=2024020489"
+```
+
+#### HTML Report Accessibility Verification
+
+All HTML reports are publicly accessible and return HTTP 200 status codes:
+
+```bash
+# Verify accessibility
+curl -I "https://www.nhl.com/scores/htmlreports/20242025/GS020489.HTM"
+# Returns: HTTP/2 200
+
+curl -I "https://www.nhl.com/scores/htmlreports/20242025/ES020489.HTM"
+# Returns: HTTP/2 200
+
+curl -I "https://www.nhl.com/stats/shiftcharts?id=2024020489"
+# Returns: HTTP/2 200
+```
+
+#### HTML Report Content Structure
+
+The HTML reports contain structured data in table format with the following characteristics:
+
+- **Content-Type**: `text/html; charset=UTF-8`
+- **Server**: Cloudflare
+- **Access-Control-Allow-Origin**: `*` (CORS enabled)
+- **Last-Modified**: Timestamp of when the report was last updated
+
+#### Sample HTML Report Content
+
+```html
+<html>
+<head>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Event Summary</title>
+</head>
+<style type="text/css">
+    /* CSS styling for report formatting */
+    p, td {font-family: arial,verdana; font-size: 10px;}
+    .title {font-weight:bold;font-size:14px;}
+    .sectionheading{font-weight:bold;background-color: #E7E7E7;color:#000000;}
+    /* Additional styling... */
+</style>
+<body>
+    <!-- Game information and statistics tables -->
+    <table id="GameInfo" border="0" cellpadding="0" cellspacing="0" align="center">
+        <tr>
+            <td style="font-size: 14px;font-weight:bold" align="center">Event Summary</td>
+        </tr>
+        <!-- Detailed game data... -->
+    </table>
+</body>
+</html>
+```
+
+#### HTML Report Data Extraction
+
+The HTML reports contain valuable data that can be extracted for analysis:
+
+1. **Game Summary (GS)**: Final scores, period breakdowns, team statistics
+2. **Event Summary (ES)**: Complete event log, penalties, timeouts, game flow
+3. **Play-by-Play (PL)**: Detailed descriptions of every play and event
+4. **Faceoff Data (FS/FC)**: Faceoff statistics by player and team
+5. **Rosters (RO)**: Complete player information and lineups
+6. **Shot Data (SS)**: Shot locations, types, and outcomes
+7. **Time on Ice (TO)**: Player ice time statistics
+8. **Shift Charts**: Visual representation of player shifts
+
+#### Integration with Right-Rail Data
+
+The HTML reports are referenced in the `gameReports` section of the right-rail data:
+
+```json
+{
+  "gameReports": {
+    "gameSummary": "https://www.nhl.com/scores/htmlreports/20242025/GS020489.HTM",
+    "eventSummary": "https://www.nhl.com/scores/htmlreports/20242025/ES020489.HTM",
+    "playByPlay": "https://www.nhl.com/scores/htmlreports/20242025/PL020489.HTM",
+    "faceoffSummary": "https://www.nhl.com/scores/htmlreports/20242025/FS020489.HTM",
+    "faceoffComparison": "https://www.nhl.com/scores/htmlreports/20242025/FC020489.HTM",
+    "rosters": "https://www.nhl.com/scores/htmlreports/20242025/RO020489.HTM",
+    "shotSummary": "https://www.nhl.com/scores/htmlreports/20242025/SS020489.HTM",
+    "shiftChart": "https://www.nhl.com/stats/shiftcharts?id=2024020489",
+    "toiAway": "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM",
+    "toiHome": "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM"
+  }
+}
+```
+
+### Standings
+- `GET /stats/rest/en/team/summary` - Get team standings and statistics
+- `GET /stats/rest/en/standings` - Get standings (if available)
+
+### Statistics
+- `GET /stats/leaders` - Get statistical leaders
+- `GET /stats/leaders/{category}` - Get leaders by category
+
+## Data Types and JSON Structures
+
+### Team (Stats API)
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class Team(BaseModel):
+    id: int
+    franchise_id: Optional[int]
+    full_name: str
+    league_id: int
+    raw_tricode: str
+    tri_code: str
+```
+
+**Real Example (2024-2025 Season):**
+```json
+{
+  "data": [
+    {
+      "id": 8,
+      "franchiseId": 1,
+      "fullName": "Montréal Canadiens",
+      "leagueId": 133,
+      "rawTricode": "MTL",
+      "triCode": "MTL"
+    },
+    {
+      "id": 16,
+      "franchiseId": 11,
+      "fullName": "Chicago Blackhawks",
+      "leagueId": 133,
+      "rawTricode": "CHI",
+      "triCode": "CHI"
+    }
+  ]
+}
+```
+
+### Team Statistics (2024-2025 Season)
+```python
+class TeamStats(BaseModel):
+    team_id: int
+    team_full_name: str
+    season_id: int
+    games_played: int
+    wins: int
+    losses: int
+    ot_losses: int
+    points: int
+    point_pct: float
+    goals_for: int
+    goals_for_per_game: float
+    goals_against: int
+    goals_against_per_game: float
+    power_play_pct: float
+    penalty_kill_pct: float
+    faceoff_win_pct: float
+    shots_for_per_game: float
+    shots_against_per_game: float
+```
+
+**Real Example (Chicago Blackhawks 2024-2025):**
+```json
+{
+  "faceoffWinPct": 0.44756,
+  "gamesPlayed": 82,
+  "goalsAgainst": 292,
+  "goalsAgainstPerGame": 3.56097,
+  "goalsFor": 224,
+  "goalsForPerGame": 2.7317,
+  "losses": 46,
+  "otLosses": 11,
+  "penaltyKillNetPct": 0.819383,
+  "penaltyKillPct": 0.792952,
+  "pointPct": 0.37195,
+  "points": 61,
+  "powerPlayNetPct": 0.21164,
+  "powerPlayPct": 0.248677,
+  "regulationAndOtWins": 23,
+  "seasonId": 20242025,
+  "shotsAgainstPerGame": 31.10975,
+  "shotsForPerGame": 24.45121,
+  "teamFullName": "Chicago Blackhawks",
+  "teamId": 16,
+  "ties": null,
+  "wins": 25,
+  "winsInRegulation": 20,
+  "winsInShootout": 2
+}
+```
+
+### Skater Statistics (2024-2025 Season)
+```python
+class SkaterStats(BaseModel):
+    player_id: int
+    skater_full_name: str
+    last_name: str
+    team_abbrevs: str
+    position_code: str
+    shoots_catches: str
+    season_id: int
+    games_played: int
+    goals: int
+    assists: int
+    points: int
+    points_per_game: float
+    plus_minus: int
+    penalty_minutes: int
+    shots: int
+    shooting_pct: float
+    time_on_ice_per_game: float
+    ev_goals: int
+    ev_points: int
+    pp_goals: int
+    pp_points: int
+    sh_goals: int
+    sh_points: int
+    game_winning_goals: int
+    ot_goals: int
+    faceoff_win_pct: Optional[float]
+```
+
+**Real Example (Kirill Marchenko 2024-2025):**
+```json
+{
+  "assists": 43,
+  "evGoals": 29,
+  "evPoints": 55,
+  "faceoffWinPct": 0.31707,
+  "gameWinningGoals": 2,
+  "gamesPlayed": 79,
+  "goals": 31,
+  "lastName": "Marchenko",
+  "otGoals": 1,
+  "penaltyMinutes": 20,
+  "playerId": 8480893,
+  "plusMinus": 29,
+  "points": 74,
+  "pointsPerGame": 0.9367,
+  "positionCode": "R",
+  "ppGoals": 2,
+  "ppPoints": 19,
+  "seasonId": 20242025,
+  "shGoals": 0,
+  "shPoints": 0,
+  "shootingPct": 0.14975,
+  "shootsCatches": "R",
+  "shots": 207,
+  "skaterFullName": "Kirill Marchenko",
+  "teamAbbrevs": "CBJ",
+  "timeOnIcePerGame": 1114.9873
+}
+```
+
+### Goalie Statistics (2024-2025 Season)
+```python
+class GoalieStats(BaseModel):
+    player_id: int
+    goalie_full_name: str
+    last_name: str
+    team_abbrevs: str
+    shoots_catches: str
+    season_id: int
+    games_played: int
+    games_started: int
+    wins: int
+    losses: int
+    ot_losses: int
+    goals_against: int
+    goals_against_average: float
+    saves: int
+    shots_against: int
+    save_pct: float
+    shutouts: int
+    time_on_ice: int
+    assists: int
+    goals: int
+    points: int
+    penalty_minutes: int
+```
+
+**Real Example (Pyotr Kochetkov 2024-2025):**
+```json
+{
+  "assists": 3,
+  "gamesPlayed": 51,
+  "gamesStarted": 49,
+  "goalieFullName": "Pyotr Kochetkov",
+  "goals": 0,
+  "goalsAgainst": 133,
+  "goalsAgainstAverage": 2.6683,
+  "lastName": "Kochetkov",
+  "losses": 17,
+  "otLosses": 3,
+  "penaltyMinutes": 10,
+  "playerId": 8481611,
+  "points": 3,
+  "savePct": 0.89482,
+  "saves": 1123,
+  "seasonId": 20242025,
+  "shootsCatches": "L",
+  "shotsAgainst": 1255,
+  "shutouts": 2,
+  "teamAbbrevs": "CAR",
+  "ties": null,
+  "timeOnIce": 179440,
+  "wins": 28
+}
+```
+
+### Game Schedule (Web API)
+```python
+from pydantic import BaseModel
+from typing import Optional, List
+
+class TVBroadcast(BaseModel):
+    id: int
+    market: str
+    country_code: str
+    network: str
+    sequence_number: int
+
+class TeamInfo(BaseModel):
+    id: int
+    common_name: dict[str, str]
+    place_name: dict[str, str]
+    abbrev: str
+    logo: str
+    dark_logo: str
+    score: int
+
+class Game(BaseModel):
+    id: int
+    season: int
+    game_type: int
+    venue: dict[str, str]
+    neutral_site: bool
+    start_time_utc: str
+    eastern_utc_offset: str
+    venue_utc_offset: str
+    venue_timezone: str
+    game_state: str
+    game_schedule_state: str
+    tv_broadcasts: List[TVBroadcast]
+    away_team: TeamInfo
+    home_team: TeamInfo
+```
+
+**Real Example (NYI vs CHI, December 15, 2024):**
+```json
+{
+  "id": 2024020489,
+  "season": 20242025,
+  "gameType": 2,
+  "venue": {
+    "default": "United Center"
+  },
+  "neutralSite": false,
+  "startTimeUTC": "2024-12-15T20:00:00Z",
+  "easternUTCOffset": "-05:00",
+  "venueUTCOffset": "-06:00",
+  "venueTimezone": "America/Chicago",
+  "gameState": "OFF",
+  "gameScheduleState": "OK",
+  "tvBroadcasts": [
+    {
+      "id": 324,
+      "market": "N",
+      "countryCode": "US",
+      "network": "NHLN",
+      "sequenceNumber": 34
+    }
+  ],
+  "awayTeam": {
+    "id": 2,
+    "commonName": {
+      "default": "Islanders"
+    },
+    "placeName": {
+      "default": "New York"
+    },
+    "abbrev": "NYI",
+    "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+    "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg",
+    "score": 3
+  },
+  "homeTeam": {
+    "id": 16,
+    "commonName": {
+      "default": "Blackhawks"
+    },
+    "placeName": {
+      "default": "Chicago"
+    },
+    "abbrev": "CHI",
+    "logo": "https://assets.nhle.com/logos/nhl/svg/CHI_19981999-20242025_light.svg",
+    "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CHI_19981999-20242025_dark.svg",
+    "score": 5
+  }
+}
+```
+
+### Game Boxscore (Web API) - Critical Reconciliation Source
+
+The boxscore endpoint provides the definitive source for player participation in individual games and serves as a critical reconciliation point for all other data sources. This endpoint is essential for:
+
+1. **Verifying player participation** - Confirming which players actually played in each game
+2. **Reconciling aggregated data** - Ensuring shift data and other granular statistics roll up correctly  
+3. **Data validation** - Cross-checking totals from various sources
+4. **Player statistics verification** - Validating individual player performance data
+
+```python
+class PlayerBoxscoreStats(BaseModel):
+    player_id: int
+    name: str
+    position: str
+    jersey_number: int
+    time_on_ice: str  # "18:45" format
+    time_on_ice_seconds: int
+    goals: int
+    assists: int
+    points: int
+    shots: int
+    plus_minus: int
+    penalty_minutes: int
+    hits: int
+    blocked_shots: int
+    faceoff_wins: int
+    faceoff_losses: int
+    faceoff_percentage: float
+    # Goalie-specific fields
+    saves: Optional[int]
+    shots_against: Optional[int]
+    save_percentage: Optional[float]
+    goals_against: Optional[int]
+    goals_against_average: Optional[float]
+
+class TeamBoxscore(BaseModel):
+    team_id: int
+    team_abbrev: str
+    score: int
+    shots_on_goal: int
+    players: List[PlayerBoxscoreStats]
+
+class GameBoxscore(BaseModel):
+    id: int
+    season: int
+    game_type: int
+    limited_scoring: bool
+    game_date: str
+    venue: dict[str, str]
+    venue_location: dict[str, str]
+    start_time_utc: str
+    game_state: str
+    period_descriptor: dict[str, any]
+    away_team: TeamBoxscore
+    home_team: TeamBoxscore
+    clock: dict[str, any]
+```
+
+**Enhanced Real Example (NYI vs CHI Boxscore with Player Data):**
+```json
+{
+  "id": 2024020489,
+  "season": 20242025,
+  "gameType": 2,
+  "limitedScoring": false,
+  "gameDate": "2024-12-15",
+  "venue": {
+    "default": "United Center"
+  },
+  "venueLocation": {
+    "default": "Chicago"
+  },
+  "startTimeUTC": "2024-12-15T20:00:00Z",
+  "easternUTCOffset": "-05:00",
+  "venueUTCOffset": "-06:00",
+  "gameState": "OFF",
+  "gameScheduleState": "OK",
+  "periodDescriptor": {
+    "number": 3,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+  },
+  "regPeriods": 3,
+  "awayTeam": {
+    "teamId": 2,
+    "teamAbbrev": "NYI",
+    "score": 3,
+    "shotsOnGoal": 33,
+    "players": [
+      {
+        "playerId": 8478403,
+        "name": "Petr Mrazek",
+        "position": "G",
+        "jerseyNumber": 34,
+        "timeOnIce": "60:00",
+        "timeOnIceSeconds": 3600,
+        "goals": 0,
+        "assists": 0,
+        "points": 0,
+        "shots": 0,
+        "saves": 28,
+        "shotsAgainst": 33,
+        "savePercentage": 0.848,
+        "goalsAgainst": 3,
+        "goalsAgainstAverage": 3.00
+      },
+      {
+        "playerId": 8484144,
+        "name": "Connor Bedard",
+        "position": "C", 
+        "jerseyNumber": 98,
+        "timeOnIce": "18:45",
+        "timeOnIceSeconds": 1125,
+        "goals": 1,
+        "assists": 2,
+        "points": 3,
+        "shots": 4,
+        "plusMinus": 2,
+        "penaltyMinutes": 0,
+        "hits": 2,
+        "blockedShots": 1,
+        "faceoffWins": 8,
+        "faceoffLosses": 12,
+        "faceoffPercentage": 40.0
+      }
+    ]
+  },
+  "homeTeam": {
+    "teamId": 16,
+    "teamAbbrev": "CHI",
+    "score": 5,
+    "shotsOnGoal": 23,
+    "players": [
+      {
+        "playerId": 8478403,
+        "name": "Petr Mrazek",
+        "position": "G",
+        "jerseyNumber": 34,
+        "timeOnIce": "60:00",
+        "timeOnIceSeconds": 3600,
+        "goals": 0,
+        "assists": 0,
+        "points": 0,
+        "shots": 0,
+        "saves": 28,
+        "shotsAgainst": 33,
+        "savePercentage": 0.848,
+        "goalsAgainst": 3,
+        "goalsAgainstAverage": 3.00
+      }
+    ]
+  },
+  "clock": {
+    "timeRemaining": "00:00",
+    "secondsRemaining": 0,
+    "running": false
+  }
+}
+```
+
+#### Boxscore Data Reconciliation Strategy
+
+The boxscore data serves as the authoritative source for player participation and should be used to validate data from other sources:
+
+**1. Cross-Reference with Shift Data:**
+- Verify time on ice totals match shift chart data
+- Validate individual shift durations sum to total time on ice
+- Confirm player participation in specific periods
+
+**2. Validate Season Statistics:**
+- Ensure season totals include boxscore data
+- Verify games played counts are accurate
+- Cross-check cumulative statistics
+
+**3. Reconcile with HTML Reports:**
+- Compare with roster reports (`RO` files)
+- Validate against time on ice reports (`TO` files)
+- Check shot summary reports (`SS` files)
+
+**Example Reconciliation Process:**
+```python
+def validate_player_data(game_id, season_id):
+    # Get boxscore data (authoritative source)
+    boxscore = get_boxscore(game_id)
+    
+    # Get shift data for granular validation
+    shift_data = get_shift_chart(game_id)
+    
+    # Get season stats for cumulative validation
+    season_stats = get_player_season_stats(season_id)
+    
+    for player in boxscore.players:
+        # Verify time on ice matches shift data
+        shift_total = sum(shift_data[player.player_id].durations)
+        assert player.time_on_ice_seconds == shift_total
+        
+        # Verify season totals include this game
+        season_player = season_stats[player.player_id]
+        assert season_player.games_played >= 1
+        assert season_player.time_on_ice >= player.time_on_ice_seconds
+```
+
+**Integration Points:**
+- **Shift Charts**: `https://www.nhl.com/stats/shiftcharts?id={gameId}`
+- **Time on Ice Reports**: `https://www.nhl.com/scores/htmlreports/{season}/TO{gameId}.HTM`
+- **Roster Reports**: `https://www.nhl.com/scores/htmlreports/{season}/RO{gameId}.HTM`
+- **Season Statistics**: Stats API endpoints
+
+## Data Integrity and Reconciliation Testing Strategy
+
+To maintain data integrity when merging granular data into aggregate tables, implement the following comprehensive reconciliation tests:
+
+### 1. Time-on-Ice Reconciliation Tests
+
+#### Test 1.1: Shift Data to Boxscore Time-on-Ice Validation
+```python
+def test_shift_to_boxscore_time_reconciliation(game_id):
+    """Verify shift durations sum to boxscore time-on-ice totals"""
+    boxscore = get_boxscore(game_id)
+    shift_data = get_shift_chart(game_id)
+    
+    for player in boxscore.players:
+        player_shifts = shift_data.get(player.player_id, [])
+        shift_total_seconds = sum(shift.duration_seconds for shift in player_shifts)
+        
+        # Allow for small rounding differences (within 1 second)
+        assert abs(shift_total_seconds - player.time_on_ice_seconds) <= 1, \
+            f"Time mismatch for player {player.player_id}: shifts={shift_total_seconds}s, boxscore={player.time_on_ice_seconds}s"
+```
+
+#### Test 1.2: Period-by-Period Time Validation
+```python
+def test_period_time_reconciliation(game_id):
+    """Verify period time-on-ice sums to total game time"""
+    boxscore = get_boxscore(game_id)
+    period_toi = get_period_time_on_ice(game_id)  # From TO HTML reports
+    
+    for player in boxscore.players:
+        period_total = sum(period_toi[player.player_id].values())
+        assert abs(period_total - player.time_on_ice_seconds) <= 1, \
+            f"Period time mismatch for player {player.player_id}"
+```
+
+### 2. Scoring Statistics Reconciliation Tests
+
+#### Test 2.1: Goal Events to Boxscore Goals Validation
+```python
+def test_goals_reconciliation(game_id):
+    """Verify goal events sum to boxscore goal totals"""
+    boxscore = get_boxscore(game_id)
+    goal_events = get_goal_events(game_id)  # From play-by-play or event summary
+    
+    # Aggregate goals by player
+    event_goals = {}
+    for event in goal_events:
+        player_id = event.scorer_id
+        event_goals[player_id] = event_goals.get(player_id, 0) + 1
+    
+    # Compare with boxscore
+    for player in boxscore.players:
+        boxscore_goals = player.goals
+        event_goals_count = event_goals.get(player.player_id, 0)
+        assert boxscore_goals == event_goals_count, \
+            f"Goal count mismatch for player {player.player_id}: boxscore={boxscore_goals}, events={event_goals_count}"
+```
+
+#### Test 2.2: Assist Events to Boxscore Assists Validation
+```python
+def test_assists_reconciliation(game_id):
+    """Verify assist events sum to boxscore assist totals"""
+    boxscore = get_boxscore(game_id)
+    assist_events = get_assist_events(game_id)
+    
+    # Aggregate assists by player
+    event_assists = {}
+    for event in assist_events:
+        for assist in event.assists:
+            player_id = assist.player_id
+            event_assists[player_id] = event_assists.get(player_id, 0) + 1
+    
+    # Compare with boxscore
+    for player in boxscore.players:
+        boxscore_assists = player.assists
+        event_assists_count = event_assists.get(player.player_id, 0)
+        assert boxscore_assists == event_assists_count, \
+            f"Assist count mismatch for player {player.player_id}: boxscore={boxscore_assists}, events={event_assists_count}"
+```
+
+### 3. Team Statistics Reconciliation Tests
+
+#### Test 3.1: Individual Player Stats to Team Totals
+```python
+def test_team_stats_reconciliation(game_id):
+    """Verify individual player stats sum to team totals"""
+    boxscore = get_boxscore(game_id)
+    
+    for team in [boxscore.away_team, boxscore.home_team]:
+        team_goals = sum(player.goals for player in team.players)
+        team_assists = sum(player.assists for player in team.players)
+        team_shots = sum(player.shots for player in team.players)
+        
+        assert team_goals == team.score, \
+            f"Team goal mismatch: calculated={team_goals}, score={team.score}"
+        assert team_shots == team.shots_on_goal, \
+            f"Team shot mismatch: calculated={team_shots}, sog={team.shots_on_goal}"
+```
+
+#### Test 3.2: Faceoff Statistics Validation
+```python
+def test_faceoff_reconciliation(game_id):
+    """Verify faceoff wins/losses balance and sum correctly"""
+    boxscore = get_boxscore(game_id)
+    faceoff_data = get_faceoff_summary(game_id)  # From FS HTML reports
+    
+    total_faceoffs = 0
+    for team in [boxscore.away_team, boxscore.home_team]:
+        for player in team.players:
+            if player.position != "G":  # Goalies don't take faceoffs
+                faceoffs = player.faceoff_wins + player.faceoff_losses
+                total_faceoffs += faceoffs
+                
+                # Verify faceoff percentage calculation
+                if faceoffs > 0:
+                    calculated_pct = (player.faceoff_wins / faceoffs) * 100
+                    assert abs(calculated_pct - player.faceoff_percentage) <= 0.1, \
+                        f"Faceoff percentage mismatch for player {player.player_id}"
+    
+    # Verify total faceoffs match between teams
+    assert total_faceoffs % 2 == 0, "Total faceoffs should be even"
+```
+
+### 4. Season Aggregation Reconciliation Tests
+
+#### Test 4.1: Game-by-Game to Season Totals Validation
+```python
+def test_season_aggregation_reconciliation(season_id, player_id):
+    """Verify season totals match sum of individual game statistics"""
+    season_stats = get_player_season_stats(season_id, player_id)
+    game_stats = get_player_game_stats(season_id, player_id)
+    
+    # Sum individual game stats
+    calculated_games = len(game_stats)
+    calculated_goals = sum(game.goals for game in game_stats)
+    calculated_assists = sum(game.assists for game in game_stats)
+    calculated_points = sum(game.points for game in game_stats)
+    calculated_time_on_ice = sum(game.time_on_ice_seconds for game in game_stats)
+    
+    # Compare with season totals
+    assert calculated_games == season_stats.games_played, \
+        f"Games played mismatch: calculated={calculated_games}, season={season_stats.games_played}"
+    assert calculated_goals == season_stats.goals, \
+        f"Goals mismatch: calculated={calculated_goals}, season={season_stats.goals}"
+    assert calculated_assists == season_stats.assists, \
+        f"Assists mismatch: calculated={calculated_assists}, season={season_stats.assists}"
+    assert calculated_points == season_stats.points, \
+        f"Points mismatch: calculated={calculated_points}, season={season_stats.points}"
+    assert abs(calculated_time_on_ice - season_stats.time_on_ice) <= calculated_games, \
+        f"Time on ice mismatch: calculated={calculated_time_on_ice}, season={season_stats.time_on_ice}"
+```
+
+#### Test 4.2: Team Season Statistics Validation
+```python
+def test_team_season_reconciliation(season_id, team_id):
+    """Verify team season stats match sum of individual player stats"""
+    team_season_stats = get_team_season_stats(season_id, team_id)
+    team_players = get_team_player_stats(season_id, team_id)
+    
+    # Sum individual player stats
+    calculated_goals_for = sum(player.goals for player in team_players)
+    calculated_goals_against = sum(player.goals_against for player in team_players if player.position == "G")
+    
+    assert abs(calculated_goals_for - team_season_stats.goals_for) <= 5, \
+        f"Team goals for mismatch: calculated={calculated_goals_for}, season={team_season_stats.goals_for}"
+    assert abs(calculated_goals_against - team_season_stats.goals_against) <= 5, \
+        f"Team goals against mismatch: calculated={calculated_goals_against}, season={team_season_stats.goals_against}"
+```
+
+### 5. Cross-Source Data Validation Tests
+
+#### Test 5.1: HTML Reports to API Data Validation
+```python
+def test_html_to_api_reconciliation(game_id):
+    """Verify HTML report data matches API data"""
+    boxscore = get_boxscore(game_id)
+    roster_report = get_roster_report(game_id)  # RO HTML report
+    toi_report = get_time_on_ice_report(game_id)  # TO HTML report
+    
+    # Verify player participation consistency
+    api_players = {player.player_id for player in boxscore.players}
+    html_players = {player.player_id for player in roster_report.players}
+    
+    assert api_players == html_players, \
+        f"Player participation mismatch between API and HTML reports"
+    
+    # Verify time-on-ice consistency
+    for player in boxscore.players:
+        html_toi = toi_report.get_player_time_on_ice(player.player_id)
+        assert abs(html_toi - player.time_on_ice_seconds) <= 1, \
+            f"Time-on-ice mismatch for player {player.player_id}"
+```
+
+#### Test 5.2: Multiple API Endpoint Consistency
+```python
+def test_api_endpoint_consistency(game_id):
+    """Verify data consistency across different API endpoints"""
+    boxscore = get_boxscore(game_id)
+    landing_data = get_game_landing(game_id)
+    right_rail = get_game_right_rail(game_id)
+    
+    # Verify game metadata consistency
+    assert boxscore.id == landing_data.id == right_rail.id
+    assert boxscore.away_team.score == landing_data.away_team.score
+    assert boxscore.home_team.score == landing_data.home_team.score
+    
+    # Verify period information consistency
+    assert boxscore.period_descriptor == landing_data.period_descriptor
+```
+
+### 6. Data Quality and Completeness Tests
+
+#### Test 6.1: Required Field Completeness
+```python
+def test_data_completeness(game_id):
+    """Verify all required fields are present and non-null"""
+    boxscore = get_boxscore(game_id)
+    
+    for player in boxscore.players:
+        assert player.player_id is not None, f"Missing player_id for player"
+        assert player.name is not None, f"Missing name for player {player.player_id}"
+        assert player.position is not None, f"Missing position for player {player.player_id}"
+        assert player.time_on_ice_seconds >= 0, f"Invalid time on ice for player {player.player_id}"
+        assert player.goals >= 0, f"Invalid goals for player {player.player_id}"
+        assert player.assists >= 0, f"Invalid assists for player {player.player_id}"
+```
+
+#### Test 6.2: Logical Consistency Tests
+```python
+def test_logical_consistency(game_id):
+    """Verify logical relationships between data fields"""
+    boxscore = get_boxscore(game_id)
+    
+    for player in boxscore.players:
+        # Points should equal goals + assists
+        calculated_points = player.goals + player.assists
+        assert player.points == calculated_points, \
+            f"Points calculation error for player {player.player_id}"
+        
+        # Time on ice should be reasonable (0-3600 seconds for regulation game)
+        assert 0 <= player.time_on_ice_seconds <= 3600, \
+            f"Unreasonable time on ice for player {player.player_id}: {player.time_on_ice_seconds}s"
+        
+        # Shots should be non-negative
+        assert player.shots >= 0, f"Negative shots for player {player.player_id}"
+```
+
+### 7. Performance and Scalability Tests
+
+#### Test 7.1: Large Dataset Aggregation Performance
+```python
+def test_aggregation_performance(season_id):
+    """Verify aggregation performance on large datasets"""
+    import time
+    
+    start_time = time.time()
+    season_stats = get_all_player_season_stats(season_id)
+    aggregation_time = time.time() - start_time
+    
+    assert aggregation_time < 30, f"Aggregation took too long: {aggregation_time}s"
+    assert len(season_stats) > 0, "No season stats returned"
+```
+
+#### Test 7.2: Memory Usage Validation
+```python
+def test_memory_usage(season_id):
+    """Verify memory usage during large data processing"""
+    import psutil
+    import os
+    
+    process = psutil.Process(os.getpid())
+    initial_memory = process.memory_info().rss
+    
+    # Process large dataset
+    season_stats = get_all_player_season_stats(season_id)
+    
+    final_memory = process.memory_info().rss
+    memory_increase = final_memory - initial_memory
+    
+    # Memory increase should be reasonable (less than 1GB)
+    assert memory_increase < 1024 * 1024 * 1024, \
+        f"Excessive memory usage: {memory_increase / (1024*1024):.1f}MB"
+```
+
+### 8. Error Handling and Edge Case Tests
+
+#### Test 8.1: Missing Data Handling
+```python
+def test_missing_data_handling(game_id):
+    """Verify graceful handling of missing or incomplete data"""
+    try:
+        boxscore = get_boxscore(game_id)
+        
+        # Test with potentially missing fields
+        for player in boxscore.players:
+            # Handle optional fields gracefully
+            faceoff_pct = getattr(player, 'faceoff_percentage', None)
+            if faceoff_pct is not None:
+                assert 0 <= faceoff_pct <= 100, f"Invalid faceoff percentage: {faceoff_pct}"
+                
+    except Exception as e:
+        # Log error but don't fail the test
+        print(f"Expected error handling for game {game_id}: {e}")
+```
+
+#### Test 8.2: Data Format Validation
+```python
+def test_data_format_validation(game_id):
+    """Verify data format consistency"""
+    boxscore = get_boxscore(game_id)
+    
+    # Validate time format
+    for player in boxscore.players:
+        time_str = player.time_on_ice
+        assert re.match(r'^\d{1,2}:\d{2}$', time_str), \
+            f"Invalid time format: {time_str}"
+        
+        # Validate jersey number format
+        assert isinstance(player.jersey_number, int), \
+            f"Invalid jersey number type: {type(player.jersey_number)}"
+        assert 1 <= player.jersey_number <= 99, \
+            f"Invalid jersey number range: {player.jersey_number}"
+```
+
+### Implementation Strategy
+
+1. **Automated Testing Pipeline**: Integrate these tests into CI/CD pipeline
+2. **Scheduled Validation**: Run reconciliation tests daily/weekly
+3. **Alert System**: Set up alerts for reconciliation failures
+4. **Data Quality Dashboard**: Monitor data quality metrics
+5. **Rollback Procedures**: Implement rollback for failed aggregations
+
+### Test Execution Order
+
+1. **Unit Tests**: Individual data source validation
+2. **Integration Tests**: Cross-source reconciliation
+3. **Aggregation Tests**: Granular to aggregate validation
+4. **Performance Tests**: Scalability validation
+5. **Regression Tests**: Historical data validation
+
+### Game Landing Data (Right-Rail Data)
+```python
+class GameLanding(BaseModel):
+    id: int
+    season: int
+    game_type: int
+    limited_scoring: bool
+    game_date: str
+    venue: dict[str, str]
+    venue_location: dict[str, str]
+    start_time_utc: str
+    eastern_utc_offset: str
+    venue_utc_offset: str
+    venue_timezone: str
+    period_descriptor: dict[str, any]
+    tv_broadcasts: List[TVBroadcast]
+    game_state: str
+    game_schedule_state: str
+    away_team: TeamInfo
+    home_team: TeamInfo
+    shootout_in_use: bool
+    max_periods: int
+    reg_periods: int
+    ot_in_use: bool
+    ties_in_use: bool
+    summary: GameSummary
+    clock: dict[str, any]
+
+class GameSummary(BaseModel):
+    scoring: List[PeriodScoring]
+    penalties: List[PeriodPenalties]
+    shootout: Optional[ShootoutData]
+    three_stars: Optional[List[ThreeStar]]
+
+class PeriodScoring(BaseModel):
+    period_descriptor: dict[str, any]
+    goals: List[GoalDetail]
+
+class GoalDetail(BaseModel):
+    situation_code: str  # 4-digit code representing game situation (see Situation Codes section)
+    event_id: int
+    strength: str  # "ev" (even strength), "pp" (power play), "sh" (short-handed)
+    player_id: int
+    first_name: dict[str, str]
+    last_name: dict[str, str]
+    name: dict[str, str]
+    team_abbrev: dict[str, str]
+    headshot: str
+    highlight_clip_sharing_url: str
+    highlight_clip_sharing_url_fr: str
+    highlight_clip: int
+    highlight_clip_fr: int
+    discrete_clip: int
+    discrete_clip_fr: int
+    goals_to_date: int
+    away_score: int
+    home_score: int
+    leading_team_abbrev: dict[str, str]
+    time_in_period: str
+    shot_type: str
+    goal_modifier: str
+    assists: List[AssistDetail]
+    ppt_replay_url: str
+    home_team_defending_side: str
+    is_home: bool
+
+class AssistDetail(BaseModel):
+    player_id: int
+    first_name: dict[str, str]
+    last_name: dict[str, str]
+    name: dict[str, str]
+    assists_to_date: int
+    sweater_number: int
+```
+
+**Real Example (NYI vs CHI Landing Data - Right-Rail):**
+```json
+{
+  "id": 2024020489,
+  "season": 20242025,
+  "gameType": 2,
+  "limitedScoring": false,
+  "gameDate": "2024-12-15",
+  "venue": {
+    "default": "United Center"
+  },
+  "venueLocation": {
+    "default": "Chicago"
+  },
+  "startTimeUTC": "2024-12-15T20:00:00Z",
+  "easternUTCOffset": "-05:00",
+  "venueUTCOffset": "-06:00",
+  "venueTimezone": "America/Chicago",
+  "periodDescriptor": {
+    "number": 3,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+  },
+  "tvBroadcasts": [
+    {
+      "id": 324,
+      "market": "N",
+      "countryCode": "US",
+      "network": "NHLN",
+      "sequenceNumber": 34
+    }
+  ],
+  "gameState": "OFF",
+  "gameScheduleState": "OK",
+  "awayTeam": {
+    "id": 2,
+    "commonName": {
+      "default": "Islanders"
+    },
+    "abbrev": "NYI",
+    "placeName": {
+      "default": "New York"
+    },
+    "placeNameWithPreposition": {
+      "default": "New York",
+      "fr": "de New York"
+    },
+    "score": 3,
+    "sog": 33,
+    "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+    "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg"
+  },
+  "homeTeam": {
+    "id": 16,
+    "commonName": {
+      "default": "Blackhawks"
+    },
+    "abbrev": "CHI",
+    "placeName": {
+      "default": "Chicago"
+    },
+    "placeNameWithPreposition": {
+      "default": "Chicago",
+      "fr": "de Chicago"
+    },
+    "score": 5,
+    "sog": 23,
+    "logo": "https://assets.nhle.com/logos/nhl/svg/CHI_19981999-20242025_light.svg",
+    "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CHI_19981999-20242025_dark.svg"
+  },
+  "shootoutInUse": true,
+  "maxPeriods": 5,
+  "regPeriods": 3,
+  "otInUse": true,
+  "tiesInUse": false,
+  "summary": {
+    "scoring": [
+      {
+        "periodDescriptor": {
+          "number": 1,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "goals": [
+          {
+            "situationCode": "1551",
+            "eventId": 265,
+            "strength": "ev",
+            "playerId": 8481624,
+            "firstName": {
+              "default": "Ilya",
+              "cs": "Ilja",
+              "fi": "Ilja",
+              "sk": "Iľja"
+            },
+            "lastName": {
+              "default": "Mikheyev",
+              "cs": "Michejev",
+              "fi": "Mihejev",
+              "sk": "Michejev"
+            },
+            "name": {
+              "default": "I. Mikheyev",
+              "cs": "I. Michejev",
+              "fi": "I. Mihejev",
+              "sk": "I. Michejev"
+            },
+            "teamAbbrev": {
+              "default": "CHI"
+            },
+            "headshot": "https://assets.nhle.com/mugs/nhl/20242025/CHI/8481624.png",
+            "highlightClipSharingUrl": "https://nhl.com/video/nyi-chi-mikheyev-scores-goal-against-ilya-sorokin-6366038553112",
+            "highlightClipSharingUrlFr": "https://nhl.com/fr/video/nyi-chi-mikheyev-marque-un-but-contre-ilya-sorokin-6366039125112",
+            "highlightClip": 6366038553112,
+            "highlightClipFr": 6366039125112,
+            "discreteClip": 6366038741112,
+            "discreteClipFr": 6366038348112,
+            "goalsToDate": 3,
+            "awayScore": 0,
+            "homeScore": 1,
+            "leadingTeamAbbrev": {
+              "default": "CHI"
+            },
+            "timeInPeriod": "09:08",
+            "shotType": "wrist",
+            "goalModifier": "none",
+            "assists": [
+              {
+                "playerId": 8476882,
+                "firstName": {
+                  "default": "Teuvo"
+                },
+                "lastName": {
+                  "default": "Teravainen",
+                  "cs": "Teräväinen",
+                  "fi": "Teräväinen",
+                  "sk": "Teräväinen",
+                  "sv": "Teräväinen"
+                },
+                "name": {
+                  "default": "T. Teravainen",
+                  "cs": "T. Teräväinen",
+                  "fi": "T. Teräväinen",
+                  "sk": "T. Teräväinen",
+                  "sv": "T. Teräväinen"
+                },
+                "assistsToDate": 8,
+                "sweaterNumber": 86
+              }
+            ],
+            "pptReplayUrl": "https://wsr.nhle.com/sprites/20242025/2024020489/ev265.json",
+            "homeTeamDefendingSide": "right",
+            "isHome": true
+          }
+        ]
+      }
+    ],
+    "penalties": [],
+    "shootout": null,
+    "threeStars": null
+  }
+}
+```
+
+## Data Dictionary
+
+### Common Field Definitions
+
+#### Team Fields
+- **`id`**: Unique team identifier (integer)
+- **`franchiseId`**: Historical franchise identifier (integer, nullable)
+- **`fullName`**: Complete team name (string)
+- **`leagueId`**: NHL league identifier (133 for NHL)
+- **`rawTricode`**: Original 3-letter team code (string)
+- **`triCode`**: Standardized 3-letter team code (string)
+
+#### Player Fields
+- **`playerId`**: Unique player identifier (integer)
+- **`skaterFullName`/`goalieFullName`**: Complete player name (string)
+- **`lastName`**: Player's last name (string)
+- **`teamAbbrevs`**: Team abbreviation(s), comma-separated if multiple teams (string)
+- **`positionCode`**: Position code (C=Center, L=Left Wing, R=Right Wing, D=Defense, G=Goalie)
+- **`shootsCatches`**: Handedness (L=Left, R=Right)
+
+#### Statistics Fields
+- **`seasonId`**: Season identifier (YYYY format, e.g., 20242025)
+- **`gamesPlayed`**: Number of games played (integer)
+- **`wins`/`losses`/`otLosses`**: Win/loss records (integer)
+- **`points`**: Total points (integer)
+- **`pointPct`**: Point percentage (float, 0.0-1.0)
+- **`goalsFor`/`goalsAgainst`**: Goals scored/allowed (integer)
+- **`goalsForPerGame`/`goalsAgainstPerGame`**: Goals per game averages (float)
+- **`powerPlayPct`/`penaltyKillPct`**: Special teams percentages (float, 0.0-1.0)
+- **`faceoffWinPct`**: Faceoff win percentage (float, 0.0-1.0, nullable)
+- **`shotsForPerGame`/`shotsAgainstPerGame`**: Shots per game averages (float)
+
+#### Skater-Specific Fields
+- **`goals`/`assists`/`points`**: Offensive statistics (integer)
+- **`pointsPerGame`**: Points per game average (float)
+- **`plusMinus`**: Plus/minus rating (integer)
+- **`penaltyMinutes`**: Penalty minutes (integer)
+- **`shots`**: Shots on goal (integer)
+- **`shootingPct`**: Shooting percentage (float, 0.0-1.0)
+- **`timeOnIcePerGame`**: Average time on ice per game in seconds (float)
+- **`evGoals`/`evPoints`**: Even strength goals/points (integer)
+- **`ppGoals`/`ppPoints`**: Power play goals/points (integer)
+- **`shGoals`/`shPoints`**: Short-handed goals/points (integer)
+- **`gameWinningGoals`**: Game-winning goals (integer)
+- **`otGoals`**: Overtime goals (integer)
+
+#### Goalie-Specific Fields
+- **`gamesStarted`**: Games started (integer)
+- **`goalsAgainst`**: Goals allowed (integer)
+- **`goalsAgainstAverage`**: Goals against average (float)
+- **`saves`**: Total saves (integer)
+- **`shotsAgainst`**: Shots faced (integer)
+- **`savePct`**: Save percentage (float, 0.0-1.0)
+- **`shutouts`**: Shutouts (integer)
+- **`timeOnIce`**: Total time on ice in seconds (integer)
+
+#### Game Fields
+- **`id`**: Unique game identifier (integer)
+- **`season`**: Season identifier (integer)
+- **`gameType`**: Game type (2=Regular Season, 3=Playoffs)
+- **`venue`**: Venue information (object with localized strings)
+- **`neutralSite`**: Whether game is at neutral site (boolean)
+- **`startTimeUTC`**: Game start time in UTC (ISO 8601 string)
+- **`gameState`**: Current game state (string)
+- **`gameScheduleState`**: Schedule state (string)
+- **`score`**: Team score (integer)
+- **`sog`**: Shots on goal (integer)
+
+#### Situation Codes
+Situation codes are 4-digit representations of the current game situation:
+**Format**: `away goalie (1=in net, 0=pulled)-away skaters-home skaters-home goalie (1=in net, 0=pulled)`
+
+**Common Situation Codes:**
+- **`1551`**: Even strength (5v5, both goalies in net)
+- **`1541`**: Away power play (5v4, both goalies in net)
+- **`1451`**: Home power play (4v5, both goalies in net)
+- **`1560`**: Away power play, home goalie pulled (5v6)
+- **`0651`**: Away power play, away goalie pulled (6v5)
+- **`1331`**: 4v4 situation (both goalies in net)
+- **`0551`**: Away goalie pulled (6v5)
+- **`1441`**: 4v4 situation (both goalies in net)
+- **`1460`**: Home power play, home goalie pulled (6v4)
+- **`1341`**: 4v4 situation (both goalies in net)
+- **`0101`**: Both goalies pulled (6v6)
+- **`1431`**: 4v4 situation (both goalies in net)
+- **`1010`**: Both goalies pulled (6v6)
+- **`1450`**: Home power play, away goalie pulled (5v4)
+- **`1340`**: 4v4 situation, away goalie pulled (5v4)
+- **`1351`**: 4v4 situation (both goalies in net)
+- **`1550`**: Away power play, away goalie pulled (6v5)
+- **`0541`**: Away goalie pulled (6v5)
+- **`0641`**: Away power play, away goalie pulled (6v5)
+- **`0441`**: 4v4 situation (both goalies in net)
+
+**Examples:**
+- **`1541`**: Away power play (5 away skaters, 4 home skaters, both goalies in net)
+- **`0641`**: Away power play with away goalie pulled (6 away skaters, 4 home skaters, away goalie pulled)
+- **`0101`**: Both goalies pulled (6v6 situation)
+- **`1551`**: Even strength (5v5, both goalies in net)
+
+**Situation Data Point:**
+The `situation_code` field appears in goal details and other game events to indicate the current game situation. This is particularly important for:
+- **Power play situations** (when one team has more skaters)
+- **Goalie pulled situations** (when a goalie is pulled for an extra attacker)
+- **4v4 situations** (when both teams have penalties)
+- **6v6 situations** (when both goalies are pulled)
+
+This data point helps track the context of goals, penalties, and other game events.
+
+## Error Handling
+- **400**: Bad Request - Invalid parameters
+- **404**: Not Found - Resource doesn't exist
+- **429**: Too Many Requests - Rate limit exceeded
+- **500**: Internal Server Error - Server error
+
+## API Usage Examples
+
+### Player Participation Verification Using Boxscore Data
+
+For comprehensive player participation tracking, the boxscore endpoint provides the most reliable source for verifying which players actually participated in games:
+
+#### Method 1: Game-by-Game Boxscore Analysis
+```bash
+# Get boxscore for specific game to verify player participation
+curl "https://api-web.nhle.com/v1/gamecenter/2024020489/boxscore"
+```
+
+This approach allows you to:
+- **Verify actual participation** vs. roster inclusion
+- **Get detailed player statistics** for each game
+- **Cross-reference with shift data** for time-on-ice validation
+- **Build comprehensive participation database** by aggregating across all games
+
+#### Method 2: Season-Wide Participation Tracking
+```python
+def get_players_with_games_played(season_id):
+    """Get all players who played in at least one game using boxscore data"""
+    players_participated = set()
+    
+    # Get all games for the season
+    games = get_season_schedule(season_id)
+    
+    for game in games:
+        if game.game_state == "OFF":  # Only completed games
+            boxscore = get_boxscore(game.id)
+            
+            # Add all players from both teams who participated
+            for player in boxscore.away_team.players + boxscore.home_team.players:
+                if player.time_on_ice_seconds > 0:  # Actually played
+                    players_participated.add(player.player_id)
+    
+    return list(players_participated)
+```
+
+#### Method 3: Hybrid Approach (Recommended)
+Combine boxscore verification with statistics API for efficiency:
+
+```python
+def verify_player_participation(season_id):
+    """Verify player participation using both stats API and boxscore data"""
+    
+    # Get initial list from stats API
+    skaters = get_skater_stats(f"seasonId={season_id} and gamesPlayed>=1")
+    goalies = get_goalie_stats(f"seasonId={season_id} and gamesPlayed>=1")
+    
+    # Verify with boxscore data for sample games
+    sample_games = get_sample_games(season_id, sample_size=10)
+    
+    for game in sample_games:
+        boxscore = get_boxscore(game.id)
+        boxscore_players = set()
+        
+        for player in boxscore.away_team.players + boxscore.home_team.players:
+            if player.time_on_ice_seconds > 0:
+                boxscore_players.add(player.player_id)
+        
+        # Cross-reference with stats API data
+        stats_players = get_game_participants_from_stats(game.id)
+        
+        # Validate consistency
+        assert boxscore_players == stats_players, f"Player mismatch in game {game.id}"
+    
+    return skaters + goalies
+```
+
+### Query Parameters (Stats API)
+
+#### Common Parameters
+- **`cayenneExp`**: Filter expression (required for most endpoints)
+  - Example: `seasonId=20242025` (2024-2025 season)
+  - Example: `seasonId=20242025 and gameTypeId=2` (regular season only)
+- **`limit`**: Number of results to return (integer, default varies)
+  - Example: `limit=50` (return 50 results)
+  - Example: `limit=-1` (return all results)
+- **`start`**: Starting position for pagination (integer, default 0)
+- **`sort`**: Field to sort by (string)
+- **`dir`**: Sort direction (ASC/DESC)
+
+#### Season and Game Type Filters
+- **Season IDs**: `20242025` (2024-2025), `20232024` (2023-2024), etc.
+- **Game Types**: `2` (Regular Season), `3` (Playoffs), `4` (Pre-season)
+
+### Example API Calls
+
+#### Get Current Season Team Statistics
+```bash
+curl "https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20242025"
+```
+
+#### Get Top 10 Skaters by Points
+```bash
+curl "https://api.nhle.com/stats/rest/en/skater/summary?limit=10&sort=points&dir=DESC&cayenneExp=seasonId=20242025"
+```
+
+#### Get Goalie Leaders by Save Percentage
+```bash
+curl "https://api.nhle.com/stats/rest/en/goalie/summary?limit=10&sort=savePct&dir=DESC&cayenneExp=seasonId=20242025"
+```
+
+#### Get Game Schedule for Specific Date
+```bash
+curl "https://api-web.nhle.com/v1/schedule/2024-12-15"
+```
+
+#### Get Game Boxscore
+```bash
+curl "https://api-web.nhle.com/v1/gamecenter/2024020489/boxscore"
+```
+
+#### Get Game Right-Rail Data
+```bash
+curl "https://api-web.nhle.com/v1/gamecenter/2024020489/right-rail"
+```
+
+#### Get Team Roster
+```bash
+curl "https://api-web.nhle.com/v1/roster/CHI/20242025"
+```
+
+#### Get Game Landing Data
+```bash
+curl "https://api-web.nhle.com/v1/gamecenter/2024020489/landing"
+```
+
+## Rate Limiting
+- **Default**: 100 requests per minute
+- **Burst**: 10 requests per second
+- **Recommendation**: Implement exponential backoff
+
+## Caching Strategy
+- **Static Data** (teams, players): 24 hours
+- **Schedule Data**: 1 hour
+- **Live Game Data**: 30 seconds
+- **Statistics**: 15 minutes
+
+## Implementation Notes
+- Use HTTPS for all requests
+- Include User-Agent header
+- Handle timezone conversions
+- Implement retry logic for failed requests
+- Cache responses appropriately
+- Validate all input parameters
+
+## Additional Data Structures
+
+### Game Right-Rail Data (Web API)
+```python
+class SeasonSeriesGame(BaseModel):
+    id: int
+    season: int
+    game_type: int
+    game_date: str
+    start_time_utc: str
+    eastern_utc_offset: str
+    venue_utc_offset: str
+    game_state: str
+    game_schedule_state: str
+    away_team: dict[str, any]
+    home_team: dict[str, any]
+    period_descriptor: dict[str, any]
+    game_center_link: str
+    game_outcome: dict[str, any]
+
+class SeasonSeriesWins(BaseModel):
+    away_team_wins: int
+    home_team_wins: int
+
+class Official(BaseModel):
+    default: str
+
+class Scratch(BaseModel):
+    id: int
+    first_name: dict[str, str]
+    last_name: dict[str, str]
+
+class TeamGameInfo(BaseModel):
+    head_coach: dict[str, str]
+    scratches: List[Scratch]
+
+class GameInfo(BaseModel):
+    referees: List[Official]
+    linesmen: List[Official]
+    away_team: TeamGameInfo
+    home_team: TeamGameInfo
+
+class GameVideo(BaseModel):
+    three_min_recap: int
+    three_min_recap_fr: int
+    condensed_game: int
+
+class PeriodScore(BaseModel):
+    period_descriptor: dict[str, any]
+    away: int
+    home: int
+
+class Linescore(BaseModel):
+    by_period: List[PeriodScore]
+    totals: dict[str, int]
+
+class TeamGameStat(BaseModel):
+    category: str
+    away_value: any
+    home_value: any
+
+class GameReport(BaseModel):
+    game_summary: str
+    event_summary: str
+    play_by_play: str
+    faceoff_summary: str
+    faceoff_comparison: str
+    rosters: str
+    shot_summary: str
+    shift_chart: str
+    toi_away: str
+    toi_home: str
+
+class GameRightRail(BaseModel):
+    season_series: List[SeasonSeriesGame]
+    season_series_wins: SeasonSeriesWins
+    game_info: GameInfo
+    game_video: GameVideo
+    linescore: Linescore
+    shots_by_period: List[PeriodScore]
+    team_game_stats: List[TeamGameStat]
+    game_reports: GameReport
+```
+
+**Real Example (NYI vs CHI Right-Rail Data):**
+```json
+{
+  "seasonSeries": [
+    {
+      "id": 2024020464,
+      "season": 20242025,
+      "gameType": 2,
+      "gameDate": "2024-12-12",
+      "startTimeUTC": "2024-12-13T00:30:00Z",
+      "easternUTCOffset": "-05:00",
+      "venueUTCOffset": "-05:00",
+      "gameState": "OFF",
+      "gameScheduleState": "OK",
+      "awayTeam": {
+        "id": 16,
+        "abbrev": "CHI",
+        "logo": "https://assets.nhle.com/logos/nhl/svg/CHI_19981999-20242025_light.svg",
+        "score": 4
+      },
+      "homeTeam": {
+        "id": 2,
+        "abbrev": "NYI",
+        "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+        "score": 5
+      },
+      "periodDescriptor": {
+        "number": 3,
+        "periodType": "REG",
+        "maxRegulationPeriods": 3
+      },
+      "gameCenterLink": "/gamecenter/nyi-vs-chi/2024/12/12/2024020464",
+      "gameOutcome": {
+        "lastPeriodType": "REG"
+      }
+    }
+  ],
+  "seasonSeriesWins": {
+    "awayTeamWins": 1,
+    "homeTeamWins": 1
+  },
+  "gameInfo": {
+    "referees": [
+      {
+        "default": "Dan O'Rourke"
+      },
+      {
+        "default": "Ghislain Hebert"
+      }
+    ],
+    "linesmen": [
+      {
+        "default": "Andrew Smith"
+      },
+      {
+        "default": "Travis Toomey"
+      }
+    ],
+    "awayTeam": {
+      "headCoach": {
+        "default": "Patrick Roy"
+      },
+      "scratches": [
+        {
+          "id": 8477500,
+          "firstName": {
+            "default": "Bo"
+          },
+          "lastName": {
+            "default": "Horvat"
+          }
+        }
+      ]
+    },
+    "homeTeam": {
+      "headCoach": {
+        "default": "Anders Sorensen"
+      },
+      "scratches": [
+        {
+          "id": 8473422,
+          "firstName": {
+            "default": "Nick"
+          },
+          "lastName": {
+            "default": "Foligno"
+          }
+        }
+      ]
+    }
+  },
+  "gameVideo": {
+    "threeMinRecap": 6366041483112,
+    "threeMinRecapFr": 6366041206112,
+    "condensedGame": 6366042649112
+  },
+  "linescore": {
+    "byPeriod": [
+      {
+        "periodDescriptor": {
+          "number": 1,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "away": 1,
+        "home": 2
+      },
+      {
+        "periodDescriptor": {
+          "number": 2,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "away": 1,
+        "home": 1
+      },
+      {
+        "periodDescriptor": {
+          "number": 3,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "away": 1,
+        "home": 2
+      }
+    ],
+    "totals": {
+      "away": 3,
+      "home": 5
+    }
+  },
+  "shotsByPeriod": [
+    {
+      "periodDescriptor": {
+        "number": 1,
+        "periodType": "REG",
+        "maxRegulationPeriods": 3
+      },
+      "away": 6,
+      "home": 10
+    },
+    {
+      "periodDescriptor": {
+        "number": 2,
+        "periodType": "REG",
+        "maxRegulationPeriods": 3
+      },
+      "away": 14,
+      "home": 6
+    },
+    {
+      "periodDescriptor": {
+        "number": 3,
+        "periodType": "REG",
+        "maxRegulationPeriods": 3
+      },
+      "away": 13,
+      "home": 7
+    }
+  ],
+  "teamGameStats": [
+    {
+      "category": "sog",
+      "awayValue": 33,
+      "homeValue": 23
+    },
+    {
+      "category": "faceoffWinningPctg",
+      "awayValue": 0.560000,
+      "homeValue": 0.440000
+    },
+    {
+      "category": "powerPlay",
+      "awayValue": "0/4",
+      "homeValue": "1/2"
+    },
+    {
+      "category": "powerPlayPctg",
+      "awayValue": 0.000000,
+      "homeValue": 0.500000
+    },
+    {
+      "category": "pim",
+      "awayValue": 4,
+      "homeValue": 8
+    },
+    {
+      "category": "hits",
+      "awayValue": 27,
+      "homeValue": 22
+    },
+    {
+      "category": "blockedShots",
+      "awayValue": 10,
+      "homeValue": 10
+    },
+    {
+      "category": "giveaways",
+      "awayValue": 7,
+      "homeValue": 13
+    },
+    {
+      "category": "takeaways",
+      "awayValue": 2,
+      "homeValue": 2
+    }
+  ],
+  "gameReports": {
+    "gameSummary": "https://www.nhl.com/scores/htmlreports/20242025/GS020489.HTM",
+    "eventSummary": "https://www.nhl.com/scores/htmlreports/20242025/ES020489.HTM",
+    "playByPlay": "https://www.nhl.com/scores/htmlreports/20242025/PL020489.HTM",
+    "faceoffSummary": "https://www.nhl.com/scores/htmlreports/20242025/FS020489.HTM",
+    "faceoffComparison": "https://www.nhl.com/scores/htmlreports/20242025/FC020489.HTM",
+    "rosters": "https://www.nhl.com/scores/htmlreports/20242025/RO020489.HTM",
+    "shotSummary": "https://www.nhl.com/scores/htmlreports/20242025/SS020489.HTM",
+    "shiftChart": "https://www.nhl.com/stats/shiftcharts?id=2024020489",
+    "toiAway": "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM",
+    "toiHome": "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM"
+  }
+}
+```
+
+### Team Roster (Web API)
+```python
+class PlayerRoster(BaseModel):
+    id: int
+    headshot: str
+    first_name: dict[str, str]
+    last_name: dict[str, str]
+    sweater_number: int
+    position_code: str
+    shoots_catches: str
+    height_in_inches: int
+    weight_in_pounds: int
+    height_in_centimeters: int
+    weight_in_kilograms: int
+    birth_date: str
+    birth_city: dict[str, str]
+    birth_country: str
+    birth_state_province: dict[str, str]
+
+class TeamRoster(BaseModel):
+    forwards: List[PlayerRoster]
+    defensemen: List[PlayerRoster]
+    goalies: List[PlayerRoster]
+```
+
+**Real Example (Chicago Blackhawks 2024-2025 Roster):**
+```json
+{
+  "forwards": [
+    {
+      "id": 8484144,
+      "headshot": "https://assets.nhle.com/mugs/nhl/20242025/CHI/8484144.png",
+      "firstName": {
+        "default": "Connor"
+      },
+      "lastName": {
+        "default": "Bedard"
+      },
+      "sweaterNumber": 98,
+      "positionCode": "C",
+      "shootsCatches": "R",
+      "heightInInches": 70,
+      "weightInPounds": 185,
+      "heightInCentimeters": 178,
+      "weightInKilograms": 84,
+      "birthDate": "2005-07-17",
+      "birthCity": {
+        "default": "North Vancouver"
+      },
+      "birthCountry": "CAN",
+      "birthStateProvince": {
+        "default": "BC"
+      }
+    }
+  ],
+  "defensemen": [
+    {
+      "id": 8482700,
+      "headshot": "https://assets.nhle.com/mugs/nhl/20242025/CHI/8482700.png",
+      "firstName": {
+        "default": "Nolan"
+      },
+      "lastName": {
+        "default": "Allan"
+      },
+      "sweaterNumber": 42,
+      "positionCode": "D",
+      "shootsCatches": "L",
+      "heightInInches": 75,
+      "weightInPounds": 195,
+      "heightInCentimeters": 191,
+      "weightInKilograms": 88,
+      "birthDate": "2003-04-28",
+      "birthCity": {
+        "default": "Regina"
+      },
+      "birthCountry": "CAN",
+      "birthStateProvince": {
+        "default": "SK"
+      }
+    }
+  ],
+  "goalies": [
+    {
+      "id": 8478403,
+      "headshot": "https://assets.nhle.com/mugs/nhl/20242025/CHI/8478403.png",
+      "firstName": {
+        "default": "Petr"
+      },
+      "lastName": {
+        "default": "Mrazek"
+      },
+      "sweaterNumber": 34,
+      "positionCode": "G",
+      "shootsCatches": "L",
+      "heightInInches": 73,
+      "weightInPounds": 190,
+      "heightInCentimeters": 185,
+      "weightInKilograms": 86,
+      "birthDate": "1992-02-14",
+      "birthCity": {
+        "default": "Ostrava"
+      },
+      "birthCountry": "CZE",
+      "birthStateProvince": {
+        "default": ""
+      }
+    }
+  ]
+}
+
+## External References
+
+### NHL API Reference Repository
+
+This documentation builds upon and references the excellent work done by the community. For additional API details and examples, see:
+
+**[NHL API Reference](https://github.com/Zmalski/NHL-API-Reference)** - Unofficial reference for the NHL API endpoints
+
+- **Repository**: [Zmalski/NHL-API-Reference](https://github.com/Zmalski/NHL-API-Reference)
+- **Stars**: 402+ stars
+- **Forks**: 42+ forks
+- **License**: MIT
+- **Status**: Active community-maintained reference
+
+This repository provides comprehensive documentation for both NHL API endpoints:
+- `api-web.nhle.com` - Game data, schedules, live feeds
+- `api.nhle.com/stats/rest` - Statistics, standings, player data
+
+### GitHub Repository
+
+This NHL API library is designed to be open source and community-driven. The project aims to:
+
+- **GitHub Stars**: Measure community adoption and satisfaction
+- **Contributions**: Welcome pull requests and community improvements
+- **Issues**: Track bugs, feature requests, and API changes
+- **Documentation**: Maintain comprehensive documentation for developers
+
+The repository will be hosted on GitHub to facilitate:
+- **Version Control**: Track changes and maintain history
+- **Collaboration**: Enable community contributions
+- **Distribution**: Easy installation via package managers
+- **CI/CD**: Automated testing and deployment
+- **Releases**: Tagged versions for stability
+
+## Implementation Notes
+- Use HTTPS for all requests
+- Include User-Agent header
+- Handle timezone conversions
+- Implement retry logic for failed requests
+- Cache responses appropriately
+- Validate all input parameters
+
+## Additional Data Structures
+
+### Game Right-Rail Data (Web API)
+```python
+class SeasonSeriesGame(BaseModel):
+    id: int
+    season: int
+    game_type: int
+    game_date: str
+    start_time_utc: str
+    eastern_utc_offset: str
+    venue_utc_offset: str
+    game_state: str
+    game_schedule_state: str
+    away_team: dict[str, any]
+    home_team: dict[str, any]
+    period_descriptor: dict[str, any]
+    game_center_link: str
+    game_outcome: dict[str, any]
+
+class SeasonSeriesWins(BaseModel):
+    away_team_wins: int
+    home_team_wins: int
+
+class Official(BaseModel):
+    default: str
+
+class Scratch(BaseModel):
+    id: int
+    first_name: dict[str, str]
+    last_name: dict[str, str]
+
+class TeamGameInfo(BaseModel):
+    head_coach: dict[str, str]
+    scratches: List[Scratch]
+
+class GameInfo(BaseModel):
+    referees: List[Official]
+    linesmen: List[Official]
+    away_team: TeamGameInfo
+    home_team: TeamGameInfo
+
+class GameVideo(BaseModel):
+    three_min_recap: int
+    three_min_recap_fr: int
+    condensed_game: int
+
+class PeriodScore(BaseModel):
+    period_descriptor: dict[str, any]
+    away: int
+    home: int
+
+class Linescore(BaseModel):
+    by_period: List[PeriodScore]
+    totals: dict[str, int]
+
+class TeamGameStat(BaseModel):
+    category: str
+    away_value: any
+    home_value: any
+
+class GameReport(BaseModel):
+    game_summary: str
+    event_summary: str
+    play_by_play: str
+    faceoff_summary: str
+    faceoff_comparison: str
+    rosters: str
+    shot_summary: str
+    shift_chart: str
+    toi_away: str
+    toi_home: str
+
+class GameRightRail(BaseModel):
+    season_series: List[SeasonSeriesGame]
+    season_series_wins: SeasonSeriesWins
+    game_info: GameInfo
+    game_video: GameVideo
+    linescore: Linescore
+    shots_by_period: List[PeriodScore]
+    team_game_stats: List[TeamGameStat]
+    game_reports: GameReport
+```
+
+**Real Example (NYI vs CHI Right-Rail Data):**
+```json
+{
+  "seasonSeries": [
+    {
+      "id": 2024020464,
+      "season": 20242025,
+      "gameType": 2,
+      "gameDate": "2024-12-12",
+      "startTimeUTC": "2024-12-13T00:30:00Z",
+      "easternUTCOffset": "-05:00",
+      "venueUTCOffset": "-05:00",
+      "gameState": "OFF",
+      "gameScheduleState": "OK",
+      "awayTeam": {
+        "id": 16,
+        "abbrev": "CHI",
+        "logo": "https://assets.nhle.com/logos/nhl/svg/CHI_19981999-20242025_light.svg",
+        "score": 4
+      },
+      "homeTeam": {
+        "id": 2,
+        "abbrev": "NYI",
+        "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+        "score": 5
+      },
+      "periodDescriptor": {
+        "number": 3,
+        "periodType": "REG",
+        "maxRegulationPeriods": 3
+      },
+      "gameCenterLink": "/gamecenter/nyi-vs-chi/2024/12/12/2024020464",
+      "gameOutcome": {
+        "lastPeriodType": "REG"
+      }
+    }
+  ],
+  "seasonSeriesWins": {
+    "awayTeamWins": 1,
+    "homeTeamWins": 1
+  },
+  "gameInfo": {
+    "referees": [
+      {
+        "default": "Dan O'Rourke"
+      },
+      {
+        "default": "Ghislain Hebert"
+      }
+    ],
+    "linesmen": [
+      {
+        "default": "Andrew Smith"
+      },
+      {
+        "default": "Travis Toomey"
+      }
+    ],
+    "awayTeam": {
+      "headCoach": {
+        "default": "Patrick Roy"
+      },
+      "scratches": [
+        {
+          "id": 8477500,
+          "firstName": {
+            "default": "Bo"
+          },
+          "lastName": {
+            "default": "Horvat"
+          }
+        }
+      ]
+    },
+    "homeTeam": {
+      "headCoach": {
+        "default": "Anders Sorensen"
+      },
+      "scratches": [
+        {
+          "id": 8473422,
+          "firstName": {
+            "default": "Nick"
+          },
+          "lastName": {
+            "default": "Foligno"
+          }
+        }
+      ]
+    }
+  },
+  "gameVideo": {
+    "threeMinRecap": 6366041483112,
+    "threeMinRecapFr": 6366041206112,
+    "condensedGame": 6366042649112
+  },
+  "linescore": {
+    "byPeriod": [
+      {
+        "periodDescriptor": {
+          "number": 1,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "away": 1,
+        "home": 2
+      },
+      {
+        "periodDescriptor": {
+          "number": 2,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "away": 1,
+        "home": 1
+      },
+      {
+        "periodDescriptor": {
+          "number": 3,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "away": 1,
+        "home": 2
+      }
+    ],
+    "totals": {
+      "away": 3,
+      "home": 5
+    }
+  },
+  "shotsByPeriod": [
+    {
+      "periodDescriptor": {
+        "number": 1,
+        "periodType": "REG",
+        "maxRegulationPeriods": 3
+      },
+      "away": 6,
+      "home": 10
+    },
+    {
+      "periodType": "REG",
+      "maxRegulationPeriods": 3
+    },
+    "away": 14,
+    "home": 6
+  },
+  {
+    "periodDescriptor": {
+      "number": 3,
+      "periodType": "REG",
+      "maxRegulationPeriods": 3
+    },
+    "away": 13,
+    "home": 7
+  }
+],
+"teamGameStats": [
+  {
+    "category": "sog",
+    "awayValue": 33,
+    "homeValue": 23
+  },
+  {
+    "category": "faceoffWinningPctg",
+    "awayValue": 0.560000,
+    "homeValue": 0.440000
+  },
+  {
+    "category": "powerPlay",
+    "awayValue": "0/4",
+    "homeValue": "1/2"
+  },
+  {
+    "category": "powerPlayPctg",
+    "awayValue": 0.000000,
+    "homeValue": 0.500000
+  },
+  {
+    "category": "pim",
+    "awayValue": 4,
+    "homeValue": 8
+  },
+  {
+    "category": "hits",
+    "awayValue": 27,
+    "homeValue": 22
+  },
+  {
+    "category": "blockedShots",
+    "awayValue": 10,
+    "homeValue": 10
+  },
+  {
+    "category": "giveaways",
+    "awayValue": 7,
+    "homeValue": 13
+  },
+  {
+    "category": "takeaways",
+    "awayValue": 2,
+    "homeValue": 2
+  }
+],
+"gameReports": {
+  "gameSummary": "https://www.nhl.com/scores/htmlreports/20242025/GS020489.HTM",
+  "eventSummary": "https://www.nhl.com/scores/htmlreports/20242025/ES020489.HTM",
+  "playByPlay": "https://www.nhl.com/scores/htmlreports/20242025/PL020489.HTM",
+  "faceoffSummary": "https://www.nhl.com/scores/htmlreports/20242025/FS020489.HTM",
+  "faceoffComparison": "https://www.nhl.com/scores/htmlreports/20242025/FC020489.HTM",
+  "rosters": "https://www.nhl.com/scores/htmlreports/20242025/RO020489.HTM",
+  "shotSummary": "https://www.nhl.com/scores/htmlreports/20242025/SS020489.HTM",
+  "shiftChart": "https://www.nhl.com/stats/shiftcharts?id=2024020489",
+  "toiAway": "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM",
+  "toiHome": "https://www.nhl.com/scores/htmlreports/20242025/TO020489.HTM"
+}
+}
+```

@@ -1,0 +1,717 @@
+---
+description: "Data download and storage strategy for NHL API datasets"
+globs: ["**/*.py", "src/nhl_api/**/*.py", "tests/**/*.py", "data/**/*"]
+alwaysApply: true
+---
+
+# NHL API Data Download and Storage Strategy
+
+## Overview
+
+This document outlines a comprehensive strategy for efficiently downloading, storing, and maintaining NHL API datasets. The strategy prioritizes data completeness, incremental updates, and efficient resource utilization while ensuring data integrity and accessibility.
+
+## Core Principles
+
+### 1. Data Completeness First
+- **Preserve complete datasets** where possible to maintain historical integrity
+- **Avoid data loss** through careful versioning and backup strategies
+- **Maintain referential integrity** across related datasets
+
+### 2. Incremental Updates
+- **Download only what has changed** to minimize bandwidth and processing time
+- **Implement efficient change detection** mechanisms
+- **Preserve update history** for audit trails and rollback capabilities
+
+### 3. Resource Efficiency
+- **Optimize storage usage** through compression and deduplication
+- **Minimize API calls** through intelligent caching and batching
+- **Implement rate limiting** to respect API constraints
+
+### 4. Data Integrity
+- **Validate data consistency** across multiple sources
+- **Implement reconciliation tests** for cross-source validation
+- **Maintain data lineage** for traceability
+
+## Data Categories and Update Frequencies
+
+### Static Data (Low Frequency Updates)
+```python
+from enum import Enum
+from datetime import datetime, timedelta
+
+class DataCategory(Enum):
+    TEAMS = "teams"
+    VENUES = "venues"
+    PLAYERS = "players"
+    OFFICIALS = "officials"
+    SEASONS = "seasons"
+
+class UpdateFrequency(Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    SEASONAL = "seasonal"
+    ON_DEMAND = "on_demand"
+
+class DataCategoryConfig:
+    def __init__(self, category: DataCategory, frequency: UpdateFrequency, 
+                 endpoints: list[str], validation_rules: dict):
+        self.category = category
+        self.frequency = frequency
+        self.endpoints = endpoints
+        self.validation_rules = validation_rules
+        self.last_update = None
+        self.next_update = None
+
+# Configuration for different data categories
+DATA_CATEGORIES = {
+    DataCategory.TEAMS: DataCategoryConfig(
+        category=DataCategory.TEAMS,
+        frequency=UpdateFrequency.SEASONAL,
+        endpoints=["/stats/rest/en/team", "/stats/rest/en/team/summary"],
+        validation_rules={
+            "min_teams": 32,
+            "required_fields": ["id", "fullName", "triCode"],
+            "unique_constraints": ["id", "triCode"]
+        }
+    ),
+    DataCategory.PLAYERS: DataCategoryConfig(
+        category=DataCategory.PLAYERS,
+        frequency=UpdateFrequency.WEEKLY,
+        endpoints=["/stats/rest/en/skater/summary", "/stats/rest/en/goalie/summary"],
+        validation_rules={
+            "required_fields": ["playerId", "skaterFullName", "teamAbbrevs"],
+            "unique_constraints": ["playerId"]
+        }
+    )
+}
+```
+
+### Dynamic Data (High Frequency Updates)
+```python
+class DynamicDataCategory(Enum):
+    GAME_SCHEDULES = "game_schedules"
+    LIVE_GAMES = "live_games"
+    GAME_STATISTICS = "game_statistics"
+    PLAYER_STATISTICS = "player_statistics"
+    TEAM_STANDINGS = "team_standings"
+
+class DynamicDataConfig:
+    def __init__(self, category: DynamicDataCategory, update_interval: timedelta,
+                 endpoints: list[str], change_detection: str):
+        self.category = category
+        self.update_interval = update_interval
+        self.endpoints = endpoints
+        self.change_detection = change_detection  # "etag", "last_modified", "content_hash"
+
+DYNAMIC_DATA_CONFIGS = {
+    DynamicDataCategory.GAME_SCHEDULES: DynamicDataConfig(
+        category=DynamicDataCategory.GAME_SCHEDULES,
+        update_interval=timedelta(hours=1),
+        endpoints=["/schedule/{date}"],
+        change_detection="last_modified"
+    ),
+    DynamicDataCategory.LIVE_GAMES: DynamicDataConfig(
+        category=DynamicDataCategory.LIVE_GAMES,
+        update_interval=timedelta(seconds=30),
+        endpoints=["/gamecenter/{gameId}/feed/live"],
+        change_detection="content_hash"
+    ),
+    DynamicDataCategory.GAME_STATISTICS: DynamicDataConfig(
+        category=DynamicDataCategory.GAME_STATISTICS,
+        update_interval=timedelta(minutes=5),
+        endpoints=["/gamecenter/{gameId}/boxscore", "/gamecenter/{gameId}/landing"],
+        change_detection="etag"
+    )
+}
+```
+
+## Storage Architecture
+
+### Multi-Tier Storage Strategy
+```python
+from abc import ABC, abstractmethod
+from typing import Any, Optional, Dict, List
+import json
+import gzip
+import hashlib
+from datetime import datetime
+from pathlib import Path
+
+class StorageTier(ABC):
+    @abstractmethod
+    async def store(self, key: str, data: Any, metadata: Dict[str, Any]) -> bool:
+        pass
+    
+    @abstractmethod
+    async def retrieve(self, key: str) -> Optional[tuple[Any, Dict[str, Any]]]:
+        pass
+    
+    @abstractmethod
+    async def exists(self, key: str) -> bool:
+        pass
+    
+    @abstractmethod
+    async def delete(self, key: str) -> bool:
+        pass
+
+class HotStorage(StorageTier):
+    """In-memory storage for frequently accessed data"""
+    def __init__(self, max_size: int = 1000):
+        self.cache = {}
+        self.max_size = max_size
+        self.access_times = {}
+    
+    async def store(self, key: str, data: Any, metadata: Dict[str, Any]) -> bool:
+        if len(self.cache) >= self.max_size:
+            # Evict least recently used
+            lru_key = min(self.access_times, key=self.access_times.get)
+            del self.cache[lru_key]
+            del self.access_times[lru_key]
+        
+        self.cache[key] = (data, metadata)
+        self.access_times[key] = datetime.now()
+        return True
+    
+    async def retrieve(self, key: str) -> Optional[tuple[Any, Dict[str, Any]]]:
+        if key in self.cache:
+            self.access_times[key] = datetime.now()
+            return self.cache[key]
+        return None
+
+class WarmStorage(StorageTier):
+    """Local file system storage for medium-term data"""
+    def __init__(self, base_path: Path):
+        self.base_path = base_path
+        self.base_path.mkdir(parents=True, exist_ok=True)
+    
+    async def store(self, key: str, data: Any, metadata: Dict[str, Any]) -> bool:
+        file_path = self.base_path / f"{key}.json.gz"
+        
+        # Compress and store data
+        compressed_data = gzip.compress(json.dumps({
+            "data": data,
+            "metadata": metadata,
+            "stored_at": datetime.now().isoformat()
+        }).encode('utf-8'))
+        
+        with open(file_path, 'wb') as f:
+            f.write(compressed_data)
+        return True
+    
+    async def retrieve(self, key: str) -> Optional[tuple[Any, Dict[str, Any]]]:
+        file_path = self.base_path / f"{key}.json.gz"
+        
+        if not file_path.exists():
+            return None
+        
+        with open(file_path, 'rb') as f:
+            compressed_data = f.read()
+        
+        decompressed_data = gzip.decompress(compressed_data)
+        stored_data = json.loads(decompressed_data.decode('utf-8'))
+        
+        return stored_data["data"], stored_data["metadata"]
+
+class ColdStorage(StorageTier):
+    """Long-term storage for historical data (database)"""
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        # Initialize database connection
+    
+    async def store(self, key: str, data: Any, metadata: Dict[str, Any]) -> bool:
+        # Store in database with versioning
+        pass
+    
+    async def retrieve(self, key: str) -> Optional[tuple[Any, Dict[str, Any]]]:
+        # Retrieve from database
+        pass
+```
+
+### Data Versioning and Change Detection
+```python
+class DataVersion:
+    def __init__(self, data_hash: str, timestamp: datetime, source: str):
+        self.data_hash = data_hash
+        self.timestamp = timestamp
+        self.source = source
+    
+    @classmethod
+    def from_data(cls, data: Any, source: str) -> 'DataVersion':
+        data_str = json.dumps(data, sort_keys=True, default=str)
+        data_hash = hashlib.sha256(data_str.encode()).hexdigest()
+        return cls(data_hash, datetime.now(), source)
+    
+    def __eq__(self, other: 'DataVersion') -> bool:
+        return self.data_hash == other.data_hash
+
+class ChangeDetector:
+    def __init__(self, storage: StorageTier):
+        self.storage = storage
+    
+    async def has_changed(self, key: str, new_data: Any, source: str) -> bool:
+        """Check if data has changed since last update"""
+        new_version = DataVersion.from_data(new_data, source)
+        
+        # Get previous version
+        previous_data = await self.storage.retrieve(f"{key}_version")
+        if previous_data is None:
+            return True
+        
+        previous_version = DataVersion(**previous_data[0])
+        return new_version != previous_version
+    
+    async def store_with_version(self, key: str, data: Any, metadata: Dict[str, Any]) -> bool:
+        """Store data with version information"""
+        version = DataVersion.from_data(data, metadata.get("source", "unknown"))
+        
+        # Store data
+        success = await self.storage.store(key, data, metadata)
+        if success:
+            # Store version information
+            await self.storage.store(f"{key}_version", version.__dict__, {})
+        
+        return success
+```
+
+## Download Strategy
+
+### Incremental Download Manager
+```python
+class IncrementalDownloadManager:
+    def __init__(self, client, storage: StorageTier, change_detector: ChangeDetector):
+        self.client = client
+        self.storage = storage
+        self.change_detector = change_detector
+        self.download_history = {}
+    
+    async def download_if_changed(self, endpoint: str, params: Dict[str, Any] = None) -> bool:
+        """Download data only if it has changed"""
+        key = self._generate_key(endpoint, params)
+        
+        try:
+            # Fetch new data
+            new_data = await self.client.get(endpoint, params=params)
+            
+            # Check if data has changed
+            if await self.change_detector.has_changed(key, new_data, endpoint):
+                # Store new data with metadata
+                metadata = {
+                    "endpoint": endpoint,
+                    "params": params,
+                    "downloaded_at": datetime.now().isoformat(),
+                    "source": "nhl_api"
+                }
+                
+                success = await self.change_detector.store_with_version(key, new_data, metadata)
+                if success:
+                    self.download_history[key] = datetime.now()
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            # Log error and return False
+            print(f"Error downloading {endpoint}: {e}")
+            return False
+    
+    async def batch_download(self, endpoints: List[Dict[str, Any]]) -> Dict[str, bool]:
+        """Download multiple endpoints in batch"""
+        results = {}
+        
+        for endpoint_config in endpoints:
+            endpoint = endpoint_config["endpoint"]
+            params = endpoint_config.get("params", {})
+            
+            results[endpoint] = await self.download_if_changed(endpoint, params)
+        
+        return results
+    
+    def _generate_key(self, endpoint: str, params: Dict[str, Any] = None) -> str:
+        """Generate storage key for endpoint and parameters"""
+        if params:
+            param_str = json.dumps(params, sort_keys=True)
+            return f"{endpoint}_{hashlib.md5(param_str.encode()).hexdigest()}"
+        return endpoint
+```
+
+### Scheduled Download Scheduler
+```python
+import asyncio
+from typing import Callable, Dict, Any
+
+class DownloadScheduler:
+    def __init__(self, download_manager: IncrementalDownloadManager):
+        self.download_manager = download_manager
+        self.scheduled_tasks = {}
+        self.running = False
+    
+    async def schedule_download(self, name: str, endpoint: str, 
+                              interval: timedelta, params: Dict[str, Any] = None):
+        """Schedule a recurring download task"""
+        async def download_task():
+            while self.running:
+                try:
+                    await self.download_manager.download_if_changed(endpoint, params)
+                    await asyncio.sleep(interval.total_seconds())
+                except Exception as e:
+                    print(f"Error in scheduled download {name}: {e}")
+                    await asyncio.sleep(60)  # Wait before retry
+        
+        self.scheduled_tasks[name] = asyncio.create_task(download_task())
+    
+    async def start(self):
+        """Start all scheduled downloads"""
+        self.running = True
+        
+        # Schedule different data categories
+        await self.schedule_download(
+            "teams", "/stats/rest/en/team", timedelta(days=7)
+        )
+        
+        await self.schedule_download(
+            "players", "/stats/rest/en/skater/summary", timedelta(hours=6)
+        )
+        
+        await self.schedule_download(
+            "schedule", "/schedule/{date}", timedelta(hours=1)
+        )
+    
+    async def stop(self):
+        """Stop all scheduled downloads"""
+        self.running = False
+        for task in self.scheduled_tasks.values():
+            task.cancel()
+        
+        await asyncio.gather(*self.scheduled_tasks.values(), return_exceptions=True)
+```
+
+## Data Reconciliation and Validation
+
+### Cross-Source Data Validation
+```python
+class DataValidator:
+    def __init__(self, storage: StorageTier):
+        self.storage = storage
+    
+    async def validate_game_data(self, game_id: int) -> Dict[str, Any]:
+        """Validate game data across multiple sources"""
+        validation_results = {}
+        
+        # Get data from different sources
+        boxscore = await self.storage.retrieve(f"boxscore_{game_id}")
+        landing = await self.storage.retrieve(f"landing_{game_id}")
+        right_rail = await self.storage.retrieve(f"right_rail_{game_id}")
+        
+        if boxscore and landing:
+            # Validate score consistency
+            boxscore_score = boxscore[0]["awayTeam"]["score"] + boxscore[0]["homeTeam"]["score"]
+            landing_score = landing[0]["awayTeam"]["score"] + landing[0]["homeTeam"]["score"]
+            
+            validation_results["score_consistency"] = boxscore_score == landing_score
+        
+        if boxscore and right_rail:
+            # Validate player participation
+            boxscore_players = set()
+            for team in [boxscore[0]["awayTeam"], boxscore[0]["homeTeam"]]:
+                for player in team["players"]:
+                    boxscore_players.add(player["playerId"])
+            
+            # Compare with roster data if available
+            validation_results["player_participation"] = len(boxscore_players) > 0
+        
+        return validation_results
+    
+    async def validate_season_statistics(self, season_id: int) -> Dict[str, Any]:
+        """Validate season statistics consistency"""
+        validation_results = {}
+        
+        # Get player statistics
+        skaters = await self.storage.retrieve(f"skaters_{season_id}")
+        goalies = await self.storage.retrieve(f"goalies_{season_id}")
+        
+        if skaters and goalies:
+            # Validate that all players have required fields
+            required_fields = ["playerId", "gamesPlayed", "teamAbbrevs"]
+            
+            for skater in skaters[0]:
+                missing_fields = [field for field in required_fields if field not in skater]
+                if missing_fields:
+                    validation_results["missing_fields"] = missing_fields
+                    break
+        
+        return validation_results
+```
+
+### Data Integrity Monitoring
+```python
+class DataIntegrityMonitor:
+    def __init__(self, storage: StorageTier, validator: DataValidator):
+        self.storage = storage
+        self.validator = validator
+        self.integrity_checks = []
+    
+    async def run_integrity_checks(self) -> Dict[str, Any]:
+        """Run all configured integrity checks"""
+        results = {}
+        
+        for check in self.integrity_checks:
+            try:
+                check_result = await check()
+                results[check.__name__] = check_result
+            except Exception as e:
+                results[check.__name__] = {"error": str(e)}
+        
+        return results
+    
+    async def check_game_data_completeness(self) -> Dict[str, Any]:
+        """Check if all game data is complete for recent games"""
+        # Get recent games
+        recent_games = await self.storage.retrieve("recent_games")
+        
+        if not recent_games:
+            return {"status": "no_recent_games"}
+        
+        completeness_results = {}
+        for game in recent_games[0]:
+            game_id = game["id"]
+            
+            # Check if all required data sources are available
+            required_sources = ["boxscore", "landing", "right_rail"]
+            available_sources = []
+            
+            for source in required_sources:
+                if await self.storage.exists(f"{source}_{game_id}"):
+                    available_sources.append(source)
+            
+            completeness_results[game_id] = {
+                "available_sources": available_sources,
+                "completeness": len(available_sources) / len(required_sources)
+            }
+        
+        return completeness_results
+```
+
+## Storage Optimization
+
+### Data Compression and Deduplication
+```python
+class DataOptimizer:
+    def __init__(self, storage: StorageTier):
+        self.storage = storage
+    
+    async def compress_historical_data(self, category: str, older_than_days: int = 30):
+        """Compress historical data to save storage space"""
+        cutoff_date = datetime.now() - timedelta(days=older_than_days)
+        
+        # Find old data files
+        old_keys = []
+        # Implementation depends on storage backend
+        
+        for key in old_keys:
+            data = await self.storage.retrieve(key)
+            if data:
+                # Compress data
+                compressed_data = self._compress_data(data[0])
+                
+                # Store compressed version
+                await self.storage.store(f"{key}_compressed", compressed_data, {
+                    "compressed_at": datetime.now().isoformat(),
+                    "original_size": len(json.dumps(data[0])),
+                    "compressed_size": len(compressed_data)
+                })
+                
+                # Delete original
+                await self.storage.delete(key)
+    
+    def _compress_data(self, data: Any) -> bytes:
+        """Compress data using gzip"""
+        return gzip.compress(json.dumps(data, default=str).encode('utf-8'))
+    
+    async def deduplicate_data(self, category: str):
+        """Remove duplicate data entries"""
+        # Implementation for deduplication logic
+        pass
+```
+
+### Storage Analytics
+```python
+class StorageAnalytics:
+    def __init__(self, storage: StorageTier):
+        self.storage = storage
+    
+    async def get_storage_metrics(self) -> Dict[str, Any]:
+        """Get storage usage metrics"""
+        metrics = {
+            "total_keys": 0,
+            "total_size_bytes": 0,
+            "categories": {},
+            "compression_ratio": 0.0
+        }
+        
+        # Calculate metrics based on storage backend
+        # Implementation depends on specific storage system
+        
+        return metrics
+    
+    async def get_access_patterns(self) -> Dict[str, Any]:
+        """Analyze data access patterns"""
+        patterns = {
+            "most_accessed": [],
+            "least_accessed": [],
+            "access_frequency": {}
+        }
+        
+        # Analyze access patterns
+        # Implementation depends on storage backend
+        
+        return patterns
+```
+
+## Implementation Strategy
+
+### Phase 1: Basic Infrastructure
+1. **Set up storage tiers** (hot, warm, cold)
+2. **Implement basic download manager**
+3. **Create change detection system**
+4. **Set up data validation framework**
+
+### Phase 2: Incremental Updates
+1. **Implement incremental download logic**
+2. **Add scheduled download scheduler**
+3. **Create data versioning system**
+4. **Set up monitoring and alerting**
+
+### Phase 3: Optimization
+1. **Implement data compression**
+2. **Add deduplication logic**
+3. **Optimize storage usage**
+4. **Add performance monitoring**
+
+### Phase 4: Advanced Features
+1. **Implement data reconciliation**
+2. **Add cross-source validation**
+3. **Create data lineage tracking**
+4. **Set up automated recovery**
+
+## Monitoring and Alerting
+
+### Key Metrics to Monitor
+```python
+class DataMetrics:
+    def __init__(self):
+        self.metrics = {
+            "downloads": {
+                "total": 0,
+                "successful": 0,
+                "failed": 0,
+                "changed": 0,
+                "unchanged": 0
+            },
+            "storage": {
+                "total_size": 0,
+                "compression_ratio": 0.0,
+                "cache_hit_rate": 0.0
+            },
+            "validation": {
+                "checks_run": 0,
+                "failures": 0,
+                "warnings": 0
+            },
+            "performance": {
+                "avg_download_time": 0.0,
+                "avg_processing_time": 0.0
+            }
+        }
+    
+    def record_download(self, success: bool, changed: bool):
+        self.metrics["downloads"]["total"] += 1
+        if success:
+            self.metrics["downloads"]["successful"] += 1
+            if changed:
+                self.metrics["downloads"]["changed"] += 1
+            else:
+                self.metrics["downloads"]["unchanged"] += 1
+        else:
+            self.metrics["downloads"]["failed"] += 1
+    
+    def get_summary(self) -> Dict[str, Any]:
+        return self.metrics
+```
+
+### Alerting Rules
+```python
+class AlertManager:
+    def __init__(self, metrics: DataMetrics):
+        self.metrics = metrics
+        self.alert_thresholds = {
+            "download_failure_rate": 0.1,  # 10% failure rate
+            "validation_failure_rate": 0.05,  # 5% validation failures
+            "storage_usage": 0.9,  # 90% storage usage
+            "avg_download_time": 30.0  # 30 seconds
+        }
+    
+    async def check_alerts(self) -> List[Dict[str, Any]]:
+        """Check for conditions that require alerts"""
+        alerts = []
+        
+        # Check download failure rate
+        total_downloads = self.metrics.metrics["downloads"]["total"]
+        if total_downloads > 0:
+            failure_rate = self.metrics.metrics["downloads"]["failed"] / total_downloads
+            if failure_rate > self.alert_thresholds["download_failure_rate"]:
+                alerts.append({
+                    "type": "high_failure_rate",
+                    "message": f"Download failure rate is {failure_rate:.2%}",
+                    "severity": "high"
+                })
+        
+        # Check validation failures
+        total_checks = self.metrics.metrics["validation"]["checks_run"]
+        if total_checks > 0:
+            validation_failure_rate = self.metrics.metrics["validation"]["failures"] / total_checks
+            if validation_failure_rate > self.alert_thresholds["validation_failure_rate"]:
+                alerts.append({
+                    "type": "validation_failures",
+                    "message": f"Validation failure rate is {validation_failure_rate:.2%}",
+                    "severity": "medium"
+                })
+        
+        return alerts
+```
+
+## Best Practices
+
+### 1. Data Backup Strategy
+- **Regular backups** of all storage tiers
+- **Point-in-time recovery** capabilities
+- **Geographic redundancy** for critical data
+- **Backup validation** and testing
+
+### 2. Error Handling
+- **Graceful degradation** when APIs are unavailable
+- **Retry logic** with exponential backoff
+- **Circuit breaker** pattern for fault tolerance
+- **Comprehensive logging** for debugging
+
+### 3. Performance Optimization
+- **Parallel downloads** for independent endpoints
+- **Connection pooling** for HTTP requests
+- **Efficient serialization** (JSON vs Protocol Buffers)
+- **Memory management** for large datasets
+
+### 4. Security Considerations
+- **Data encryption** at rest and in transit
+- **Access control** for sensitive data
+- **Audit logging** for data access
+- **Secure API key management**
+
+## Conclusion
+
+This data download and storage strategy provides a comprehensive framework for efficiently managing NHL API datasets. By prioritizing data completeness, implementing incremental updates, and maintaining data integrity, the system can scale to handle large volumes of hockey data while remaining efficient and reliable.
+
+The strategy balances the need for complete historical data with the practical constraints of storage and bandwidth, ensuring that users have access to comprehensive, up-to-date information while minimizing resource usage.
+description:
+globs:
+alwaysApply: true
+---

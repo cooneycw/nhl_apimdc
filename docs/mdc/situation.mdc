@@ -1,0 +1,657 @@
+---
+description: "NHL API Situation Codes - Comprehensive documentation of all situation codes found in NHL API datasets"
+globs: ["**/*.py", "src/nhl_api/**/*.py", "tests/**/*.py", "data/**/*"]
+alwaysApply: true
+---
+
+# NHL API Situation Codes
+
+## Overview
+
+This document provides comprehensive documentation of all situation codes (`situationCode`) found within NHL API datasets, particularly in play-by-play data and goal details. Situation codes are 4-digit string identifiers that represent the current game situation, including the number of skaters on each team and whether goalies are in net. These codes are essential for understanding game context, power play situations, and goalie pulled scenarios.
+
+## Situation Code Structure
+
+### Format: `away goalie (1=in net, 0=pulled)-away skaters-home skaters-home goalie (1=in net, 0=pulled)`
+
+```python
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
+from enum import Enum
+
+@dataclass
+class NHLSituationCode:
+    """NHL situation code structure"""
+    situation_code: str  # 4-digit code
+    away_goalie_in_net: bool
+    away_skaters: int
+    home_skaters: int
+    home_goalie_in_net: bool
+    description: str
+    category: str
+    strength_situation: str  # "even", "power_play", "penalty_kill", "empty_net"
+    examples: Optional[List[Dict[str, Any]]] = None
+```
+
+## Situation Code Categories
+
+### Even Strength Situations (5v5)
+```python
+class EvenStrengthSituations(Enum):
+    """Even strength game situations"""
+    EVEN_STRENGTH_5V5 = "1551"  # Both goalies in net, 5 skaters each
+
+# Situation Code: 1551 - Even Strength 5v5
+# Format: 1-5-5-1
+# Description: "Even Strength 5v5"
+# Category: Even Strength
+# Context: Standard even strength play (both goalies in net, 5 skaters each)
+# Strength Situation: "even"
+# Example: {"situationCode": "1551", "strength": "ev", "shotType": "wrist", "goalModifier": "none"}
+```
+
+### Power Play Situations
+```python
+class PowerPlaySituations(Enum):
+    """Power play game situations"""
+    AWAY_POWER_PLAY_5V4 = "1541"  # Away power play, both goalies in net
+    HOME_POWER_PLAY_4V5 = "1451"  # Home power play, both goalies in net
+    AWAY_PP_HOME_GOALIE_PULLED = "1560"  # Away PP, home goalie pulled
+    HOME_PP_AWAY_GOALIE_PULLED = "1460"  # Home PP, away goalie pulled
+    AWAY_PP_AWAY_GOALIE_PULLED = "0651"  # Away PP, away goalie pulled
+    HOME_PP_HOME_GOALIE_PULLED = "1550"  # Home PP, home goalie pulled
+
+# Situation Code: 1541 - Away Power Play 5v4
+# Format: 1-5-4-1
+# Description: "Away Power Play 5v4"
+# Category: Power Play
+# Context: Away team has power play advantage (5 away skaters, 4 home skaters, both goalies in net)
+# Strength Situation: "power_play" (away team)
+# Example: {"situationCode": "1541", "strength": "pp", "shotType": "slap", "goalModifier": "power-play"}
+
+# Situation Code: 1451 - Home Power Play 4v5
+# Format: 1-4-5-1
+# Description: "Home Power Play 4v5"
+# Category: Power Play
+# Context: Home team has power play advantage (4 away skaters, 5 home skaters, both goalies in net)
+# Strength Situation: "power_play" (home team)
+# Example: {"situationCode": "1451", "strength": "pp", "shotType": "wrist", "goalModifier": "power-play"}
+
+# Situation Code: 1560 - Away PP, Home Goalie Pulled
+# Format: 1-5-6-0
+# Description: "Away Power Play, Home Goalie Pulled"
+# Category: Power Play
+# Context: Away team has power play AND home team has pulled goalie (5 away skaters, 6 home skaters, away goalie in net, home goalie pulled)
+# Strength Situation: "power_play" (away team)
+# Example: {"situationCode": "1560", "strength": "pp", "shotType": "wrist", "goalModifier": "power-play"}
+
+# Situation Code: 1460 - Home PP, Away Goalie Pulled
+# Format: 1-4-6-0
+# Description: "Home Power Play, Away Goalie Pulled"
+# Category: Power Play
+# Context: Home team has power play AND away team has pulled goalie (4 away skaters, 6 home skaters, away goalie pulled, home goalie in net)
+# Strength Situation: "power_play" (home team)
+# Example: {"situationCode": "1460", "strength": "pp", "shotType": "slap", "goalModifier": "power-play"}
+
+# Situation Code: 0651 - Away PP, Away Goalie Pulled
+# Format: 0-6-5-1
+# Description: "Away Power Play, Away Goalie Pulled"
+# Category: Power Play
+# Context: Away team has power play AND has pulled goalie (6 away skaters, 5 home skaters, away goalie pulled, home goalie in net)
+# Strength Situation: "power_play" (away team)
+# Example: {"situationCode": "0651", "strength": "pp", "shotType": "wrist", "goalModifier": "power-play"}
+
+# Situation Code: 1550 - Home PP, Home Goalie Pulled
+# Format: 1-5-5-0
+# Description: "Home Power Play, Home Goalie Pulled"
+# Category: Power Play
+# Context: Home team has power play AND has pulled goalie (5 away skaters, 5 home skaters, away goalie in net, home goalie pulled)
+# Strength Situation: "power_play" (home team)
+# Example: {"situationCode": "1550", "strength": "pp", "shotType": "slap", "goalModifier": "power-play"}
+```
+
+### 4v4 Situations (Both Teams Penalized)
+```python
+class FourOnFourSituations(Enum):
+    """4v4 game situations (both teams have penalties)"""
+    FOUR_ON_FOUR_4V4 = "1441"  # Both goalies in net, 4 skaters each
+    FOUR_ON_FOUR_AWAY_GOALIE_PULLED = "1341"  # 4v4, away goalie pulled
+    FOUR_ON_FOUR_HOME_GOALIE_PULLED = "1431"  # 4v4, home goalie pulled
+    FOUR_ON_FOUR_BOTH_GOALIES_PULLED = "1331"  # 4v4, both goalies pulled
+
+# Situation Code: 1441 - 4v4 Situation
+# Format: 1-4-4-1
+# Description: "4v4 Situation"
+# Category: 4v4
+# Context: Both teams have penalties (4 away skaters, 4 home skaters, both goalies in net)
+# Strength Situation: "even"
+# Example: {"situationCode": "1441", "strength": "ev", "shotType": "wrist", "goalModifier": "none"}
+
+# Situation Code: 1341 - 4v4, Away Goalie Pulled
+# Format: 1-3-4-1
+# Description: "4v4, Away Goalie Pulled"
+# Category: 4v4
+# Context: 4v4 situation with away goalie pulled (3 away skaters, 4 home skaters, away goalie pulled, home goalie in net)
+# Strength Situation: "even"
+# Example: {"situationCode": "1341", "strength": "ev", "shotType": "wrist", "goalModifier": "none"}
+
+# Situation Code: 1431 - 4v4, Home Goalie Pulled
+# Format: 1-4-3-1
+# Description: "4v4, Home Goalie Pulled"
+# Category: 4v4
+# Context: 4v4 situation with home goalie pulled (4 away skaters, 3 home skaters, away goalie in net, home goalie pulled)
+# Strength Situation: "even"
+# Example: {"situationCode": "1431", "strength": "ev", "shotType": "wrist", "goalModifier": "none"}
+
+# Situation Code: 1331 - 4v4, Both Goalies Pulled
+# Format: 1-3-3-1
+# Description: "4v4, Both Goalies Pulled"
+# Category: 4v4
+# Context: 4v4 situation with both goalies pulled (3 away skaters, 3 home skaters, both goalies pulled)
+# Strength Situation: "even"
+# Example: {"situationCode": "1331", "strength": "ev", "shotType": "wrist", "goalModifier": "none"}
+```
+
+### Empty Net Situations (Goalie Pulled)
+```python
+class EmptyNetSituations(Enum):
+    """Empty net situations (goalie pulled)"""
+    AWAY_GOALIE_PULLED_6V5 = "0551"  # Away goalie pulled, 6 away skaters
+    HOME_GOALIE_PULLED_5V6 = "1560"  # Home goalie pulled, 6 home skaters
+    BOTH_GOALIES_PULLED_6V6 = "0101"  # Both goalies pulled, 6 skaters each
+
+# Situation Code: 0551 - Away Goalie Pulled 6v5
+# Format: 0-5-5-1
+# Description: "Away Goalie Pulled 6v5"
+# Category: Empty Net
+# Context: Away team has pulled goalie for extra attacker (5 away skaters, 5 home skaters, away goalie pulled, home goalie in net)
+# Strength Situation: "even"
+# Example: {"situationCode": "0551", "strength": "ev", "shotType": "wrist", "goalModifier": "empty-net"}
+
+# Situation Code: 1560 - Home Goalie Pulled 5v6
+# Format: 1-5-6-0
+# Description: "Home Goalie Pulled 5v6"
+# Category: Empty Net
+# Context: Home team has pulled goalie for extra attacker (5 away skaters, 6 home skaters, away goalie in net, home goalie pulled)
+# Strength Situation: "even"
+# Example: {"situationCode": "1560", "strength": "ev", "shotType": "wrist", "goalModifier": "empty-net"}
+
+# Situation Code: 0101 - Both Goalies Pulled 6v6
+# Format: 0-1-0-1
+# Description: "Both Goalies Pulled 6v6"
+# Category: Empty Net
+# Context: Both teams have pulled goalies for extra attackers (6 away skaters, 6 home skaters, both goalies pulled)
+# Strength Situation: "even"
+# Example: {"situationCode": "0101", "strength": "ev", "shotType": "wrist", "goalModifier": "empty-net"}
+```
+
+### Special Situations
+```python
+class SpecialSituations(Enum):
+    """Special or rare game situations"""
+    THREE_ON_THREE = "1331"  # 3v3 situation (overtime or penalties)
+    FIVE_ON_THREE = "1531"  # 5v3 power play situation
+    THREE_ON_FIVE = "1351"  # 3v5 penalty kill situation
+
+# Situation Code: 1351 - 3v5 Penalty Kill
+# Format: 1-3-5-1
+# Description: "3v5 Penalty Kill"
+# Category: Special
+# Context: Away team has multiple penalties (3 away skaters, 5 home skaters, both goalies in net)
+# Strength Situation: "penalty_kill" (away team)
+# Example: {"situationCode": "1351", "strength": "pp", "shotType": "wrist", "goalModifier": "power-play"}
+
+# Situation Code: 1531 - 5v3 Power Play
+# Format: 1-5-3-1
+# Description: "5v3 Power Play"
+# Category: Special
+# Context: Home team has multiple penalties (5 away skaters, 3 home skaters, both goalies in net)
+# Strength Situation: "power_play" (away team)
+# Example: {"situationCode": "1531", "strength": "pp", "shotType": "slap", "goalModifier": "power-play"}
+```
+
+## Situation Code Reference Table
+
+### Complete Situation Code Mapping
+```python
+class NHLSituationCodeRegistry:
+    """Complete registry of all NHL situation codes"""
+    
+    SITUATION_CODES = {
+        # Even Strength Situations
+        "1551": NHLSituationCode("1551", True, 5, 5, True, "Even Strength 5v5", "Even Strength", "even"),
+        
+        # Power Play Situations
+        "1541": NHLSituationCode("1541", True, 5, 4, True, "Away Power Play 5v4", "Power Play", "power_play"),
+        "1451": NHLSituationCode("1451", True, 4, 5, True, "Home Power Play 4v5", "Power Play", "power_play"),
+        "1560": NHLSituationCode("1560", True, 5, 6, False, "Away PP, Home Goalie Pulled", "Power Play", "power_play"),
+        "1460": NHLSituationCode("1460", True, 4, 6, False, "Home PP, Away Goalie Pulled", "Power Play", "power_play"),
+        "0651": NHLSituationCode("0651", False, 6, 5, True, "Away PP, Away Goalie Pulled", "Power Play", "power_play"),
+        "1550": NHLSituationCode("1550", True, 5, 5, False, "Home PP, Home Goalie Pulled", "Power Play", "power_play"),
+        
+        # 4v4 Situations
+        "1441": NHLSituationCode("1441", True, 4, 4, True, "4v4 Situation", "4v4", "even"),
+        "1341": NHLSituationCode("1341", True, 3, 4, True, "4v4, Away Goalie Pulled", "4v4", "even"),
+        "1431": NHLSituationCode("1431", True, 4, 3, True, "4v4, Home Goalie Pulled", "4v4", "even"),
+        "1331": NHLSituationCode("1331", True, 3, 3, True, "4v4, Both Goalies Pulled", "4v4", "even"),
+        
+        # Empty Net Situations
+        "0551": NHLSituationCode("0551", False, 5, 5, True, "Away Goalie Pulled 6v5", "Empty Net", "even"),
+        "0101": NHLSituationCode("0101", False, 6, 6, False, "Both Goalies Pulled 6v6", "Empty Net", "even"),
+        
+        # Special Situations
+        "1351": NHLSituationCode("1351", True, 3, 5, True, "3v5 Penalty Kill", "Special", "penalty_kill"),
+        "1531": NHLSituationCode("1531", True, 5, 3, True, "5v3 Power Play", "Special", "power_play"),
+        "0440": NHLSituationCode("0440", False, 4, 4, False, "4v4, Both Goalies Pulled", "Special", "even"),
+    }
+    
+    @classmethod
+    def get_situation_code(cls, situation_code: str) -> Optional[NHLSituationCode]:
+        """Get situation code information by code"""
+        return cls.SITUATION_CODES.get(situation_code)
+    
+    @classmethod
+    def get_situation_codes_by_category(cls, category: str) -> List[NHLSituationCode]:
+        """Get all situation codes in a specific category"""
+        return [sc for sc in cls.SITUATION_CODES.values() if sc.category == category]
+    
+    @classmethod
+    def get_all_situation_codes(cls) -> List[NHLSituationCode]:
+        """Get all situation codes sorted by code"""
+        return sorted(cls.SITUATION_CODES.values(), key=lambda x: x.situation_code)
+    
+    @classmethod
+    def parse_situation_code(cls, situation_code: str) -> Dict[str, Any]:
+        """Parse a situation code into its components"""
+        if len(situation_code) != 4 or not situation_code.isdigit():
+            raise ValueError(f"Invalid situation code format: {situation_code}")
+        
+        away_goalie = situation_code[0] == "1"
+        away_skaters = int(situation_code[1])
+        home_skaters = int(situation_code[2])
+        home_goalie = situation_code[3] == "1"
+        
+        return {
+            "away_goalie_in_net": away_goalie,
+            "away_skaters": away_skaters,
+            "home_skaters": home_skaters,
+            "home_goalie_in_net": home_goalie,
+            "total_away_players": away_skaters + (1 if away_goalie else 0),
+            "total_home_players": home_skaters + (1 if home_goalie else 0)
+        }
+```
+
+## Situation Code Analysis and Processing
+
+### Situation Code Aggregation
+```python
+class SituationCodeAnalyzer:
+    """Analyzes situation codes for patterns and statistics"""
+    
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+    
+    def count_by_situation_code(self) -> Dict[str, int]:
+        """Count events by situation code"""
+        counts = {}
+        for event in self.events:
+            situation_code = event.get('situationCode')
+            if situation_code:
+                counts[situation_code] = counts.get(situation_code, 0) + 1
+        return counts
+    
+    def count_by_category(self) -> Dict[str, int]:
+        """Count events by situation category"""
+        category_counts = {}
+        for event in self.events:
+            situation_code = event.get('situationCode')
+            if situation_code:
+                situation_info = NHLSituationCodeRegistry.get_situation_code(situation_code)
+                if situation_info:
+                    category_counts[situation_info.category] = category_counts.get(situation_info.category, 0) + 1
+        return category_counts
+    
+    def count_by_strength_situation(self) -> Dict[str, int]:
+        """Count events by strength situation"""
+        strength_counts = {}
+        for event in self.events:
+            situation_code = event.get('situationCode')
+            if situation_code:
+                situation_info = NHLSituationCodeRegistry.get_situation_code(situation_code)
+                if situation_info:
+                    strength_counts[situation_info.strength_situation] = strength_counts.get(situation_info.strength_situation, 0) + 1
+        return strength_counts
+    
+    def get_most_common_situations(self, limit: int = 10) -> List[tuple]:
+        """Get most common situation codes"""
+        counts = self.count_by_situation_code()
+        return sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+    
+    def get_situation_timeline(self) -> List[Dict[str, Any]]:
+        """Get timeline of situation codes with timestamps"""
+        timeline = []
+        for event in self.events:
+            if 'situationCode' in event and 'timeInPeriod' in event:
+                situation_info = NHLSituationCodeRegistry.get_situation_code(event['situationCode'])
+                timeline.append({
+                    'situationCode': event['situationCode'],
+                    'timeInPeriod': event['timeInPeriod'],
+                    'period': event.get('periodDescriptor', {}).get('number'),
+                    'description': situation_info.description if situation_info else 'Unknown',
+                    'category': situation_info.category if situation_info else 'Unknown'
+                })
+        return timeline
+    
+    def analyze_situation_patterns(self) -> Dict[str, Any]:
+        """Analyze patterns in situation code usage"""
+        counts = self.count_by_situation_code()
+        categories = self.count_by_category()
+        strength_situations = self.count_by_strength_situation()
+        
+        # Calculate percentages
+        total_events = sum(counts.values())
+        situation_percentages = {code: (count / total_events * 100) for code, count in counts.items()}
+        category_percentages = {cat: (count / total_events * 100) for cat, count in categories.items()}
+        strength_percentages = {strength: (count / total_events * 100) for strength, count in strength_situations.items()}
+        
+        return {
+            'total_events': total_events,
+            'situation_counts': counts,
+            'situation_percentages': situation_percentages,
+            'category_counts': categories,
+            'category_percentages': category_percentages,
+            'strength_situation_counts': strength_situations,
+            'strength_situation_percentages': strength_percentages,
+            'most_common': self.get_most_common_situations(5)
+        }
+```
+
+### Situation Code Filtering and Querying
+```python
+class SituationCodeFilter:
+    """Filters and queries events by situation codes"""
+    
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+    
+    def filter_by_situation_code(self, situation_code: str) -> List[Dict[str, Any]]:
+        """Filter events by specific situation code"""
+        return [event for event in self.events if event.get('situationCode') == situation_code]
+    
+    def filter_by_category(self, category: str) -> List[Dict[str, Any]]:
+        """Filter events by situation category"""
+        filtered_events = []
+        for event in self.events:
+            situation_code = event.get('situationCode')
+            if situation_code:
+                situation_info = NHLSituationCodeRegistry.get_situation_code(situation_code)
+                if situation_info and situation_info.category == category:
+                    filtered_events.append(event)
+        return filtered_events
+    
+    def filter_by_strength_situation(self, strength: str) -> List[Dict[str, Any]]:
+        """Filter events by strength situation"""
+        filtered_events = []
+        for event in self.events:
+            situation_code = event.get('situationCode')
+            if situation_code:
+                situation_info = NHLSituationCodeRegistry.get_situation_code(situation_code)
+                if situation_info and situation_info.strength_situation == strength:
+                    filtered_events.append(event)
+        return filtered_events
+    
+    def filter_power_play_events(self) -> List[Dict[str, Any]]:
+        """Filter all power play events"""
+        return self.filter_by_strength_situation("power_play")
+    
+    def filter_penalty_kill_events(self) -> List[Dict[str, Any]]:
+        """Filter all penalty kill events"""
+        return self.filter_by_strength_situation("penalty_kill")
+    
+    def filter_even_strength_events(self) -> List[Dict[str, Any]]:
+        """Filter all even strength events"""
+        return self.filter_by_strength_situation("even")
+    
+    def filter_empty_net_events(self) -> List[Dict[str, Any]]:
+        """Filter all empty net events"""
+        return self.filter_by_category("Empty Net")
+    
+    def filter_four_on_four_events(self) -> List[Dict[str, Any]]:
+        """Filter all 4v4 events"""
+        return self.filter_by_category("4v4")
+```
+
+## Situation Code Validation and Quality Control
+
+### Validation Rules
+```python
+class SituationCodeValidator:
+    """Validates situation code data quality and consistency"""
+    
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+    
+    def validate_situation_code_presence(self) -> List[str]:
+        """Validate that all events have situation codes"""
+        errors = []
+        for i, event in enumerate(self.events):
+            if 'situationCode' not in event:
+                errors.append(f"Event {i} missing situationCode")
+            elif event['situationCode'] is None:
+                errors.append(f"Event {i} has null situationCode")
+        return errors
+    
+    def validate_situation_code_format(self) -> List[str]:
+        """Validate that situation codes have correct format"""
+        errors = []
+        for i, event in enumerate(self.events):
+            situation_code = event.get('situationCode')
+            if situation_code:
+                if not situation_code.isdigit() or len(situation_code) != 4:
+                    errors.append(f"Event {i} has invalid situation code format: {situation_code}")
+        return errors
+    
+    def validate_situation_code_values(self) -> List[str]:
+        """Validate that situation codes are valid"""
+        errors = []
+        valid_codes = set(NHLSituationCodeRegistry.SITUATION_CODES.keys())
+        
+        for i, event in enumerate(self.events):
+            situation_code = event.get('situationCode')
+            if situation_code and situation_code not in valid_codes:
+                errors.append(f"Event {i} has invalid situation code: {situation_code}")
+        
+        return errors
+    
+    def validate_situation_transitions(self) -> List[str]:
+        """Validate logical situation transitions"""
+        errors = []
+        
+        for i in range(1, len(self.events)):
+            prev_situation = self.events[i-1].get('situationCode')
+            curr_situation = self.events[i].get('situationCode')
+            
+            if prev_situation and curr_situation:
+                # Check for impossible transitions (e.g., 1551 to 0101 without intermediate steps)
+                prev_info = NHLSituationCodeRegistry.get_situation_code(prev_situation)
+                curr_info = NHLSituationCodeRegistry.get_situation_code(curr_situation)
+                
+                if prev_info and curr_info:
+                    # Validate that skater counts don't change by more than 1 per team
+                    skater_diff_away = abs(curr_info.away_skaters - prev_info.away_skaters)
+                    skater_diff_home = abs(curr_info.home_skaters - prev_info.home_skaters)
+                    
+                    if skater_diff_away > 1 or skater_diff_home > 1:
+                        errors.append(f"Event {i} has impossible skater count transition: {prev_situation} -> {curr_situation}")
+        
+        return errors
+    
+    def run_all_validations(self) -> Dict[str, List[str]]:
+        """Run all validation checks"""
+        return {
+            'missing_situation_codes': self.validate_situation_code_presence(),
+            'invalid_format': self.validate_situation_code_format(),
+            'invalid_situation_codes': self.validate_situation_code_values(),
+            'impossible_transitions': self.validate_situation_transitions()
+        }
+```
+
+## Situation Code Integration with Other Systems
+
+### Integration with Event System
+```python
+class SituationCodeEventIntegration:
+    """Integrates situation codes with the broader event system"""
+    
+    @staticmethod
+    def create_situation_context(situation_code: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create standardized situation context from situation code data"""
+        situation_info = NHLSituationCodeRegistry.get_situation_code(situation_code)
+        
+        if not situation_info:
+            raise ValueError(f"Unknown situation code: {situation_code}")
+        
+        parsed = NHLSituationCodeRegistry.parse_situation_code(situation_code)
+        
+        return {
+            'situation_code': situation_code,
+            'description': situation_info.description,
+            'category': situation_info.category,
+            'strength_situation': situation_info.strength_situation,
+            'away_goalie_in_net': parsed['away_goalie_in_net'],
+            'away_skaters': parsed['away_skaters'],
+            'home_skaters': parsed['home_skaters'],
+            'home_goalie_in_net': parsed['home_goalie_in_net'],
+            'total_away_players': parsed['total_away_players'],
+            'total_home_players': parsed['total_home_players'],
+            'timestamp': event_data.get('timeInPeriod'),
+            'period': event_data.get('periodDescriptor', {}).get('number'),
+            'raw_data': event_data
+        }
+    
+    @staticmethod
+    def categorize_events_by_situation(events: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Categorize events by situation category"""
+        categorized = {}
+        
+        for event in events:
+            situation_code = event.get('situationCode')
+            if situation_code:
+                situation_info = NHLSituationCodeRegistry.get_situation_code(situation_code)
+                if situation_info:
+                    category = situation_info.category
+                    if category not in categorized:
+                        categorized[category] = []
+                    categorized[category].append(event)
+        
+        return categorized
+```
+
+### Integration with Type Codes
+```python
+class SituationCodeTypeCodeIntegration:
+    """Integrates situation codes with type codes"""
+    
+    @staticmethod
+    def analyze_type_codes_by_situation(events: List[Dict[str, Any]]) -> Dict[str, Dict[int, int]]:
+        """Analyze type code distribution by situation code"""
+        situation_analysis = {}
+        
+        for event in events:
+            situation_code = event.get('situationCode')
+            type_code = event.get('typeCode')
+            
+            if situation_code and type_code:
+                if situation_code not in situation_analysis:
+                    situation_analysis[situation_code] = {}
+                
+                situation_analysis[situation_code][type_code] = situation_analysis[situation_code].get(type_code, 0) + 1
+        
+        return situation_analysis
+    
+    @staticmethod
+    def get_situation_specific_type_codes(events: List[Dict[str, Any]], situation_code: str) -> Dict[int, int]:
+        """Get type code distribution for a specific situation"""
+        situation_events = [e for e in events if e.get('situationCode') == situation_code]
+        type_code_counts = {}
+        
+        for event in situation_events:
+            type_code = event.get('typeCode')
+            if type_code:
+                type_code_counts[type_code] = type_code_counts.get(type_code, 0) + 1
+        
+        return type_code_counts
+```
+
+## Implementation Examples
+
+### Situation Code Processing Pipeline
+```python
+class SituationCodeProcessingPipeline:
+    """Complete situation code processing pipeline"""
+    
+    def __init__(self, game_id: int):
+        self.game_id = game_id
+        self.events = []
+        self.analyzer = None
+        self.filter = None
+        self.validator = None
+    
+    async def load_and_process_events(self):
+        """Load events and initialize processing components"""
+        # Load play-by-play data
+        play_by_play = await self.get_play_by_play_data()
+        self.events = play_by_play.get('plays', [])
+        
+        # Initialize components
+        self.analyzer = SituationCodeAnalyzer(self.events)
+        self.filter = SituationCodeFilter(self.events)
+        self.validator = SituationCodeValidator(self.events)
+    
+    def generate_situation_report(self) -> Dict[str, Any]:
+        """Generate comprehensive situation code analysis report"""
+        if not self.analyzer:
+            raise RuntimeError("Events not loaded. Call load_and_process_events() first.")
+        
+        validation_results = self.validator.run_all_validations()
+        
+        return {
+            'game_id': self.game_id,
+            'total_events': len(self.events),
+            'situation_analysis': self.analyzer.analyze_situation_patterns(),
+            'validation_results': validation_results,
+            'validation_passed': all(len(errors) == 0 for errors in validation_results.values()),
+            'situation_timeline': self.analyzer.get_situation_timeline(),
+            'categorized_events': SituationCodeEventIntegration.categorize_events_by_situation(self.events)
+        }
+    
+    def get_situation_summary(self) -> Dict[str, Any]:
+        """Get summary of all situations in the game"""
+        situation_counts = self.analyzer.count_by_situation_code()
+        category_counts = self.analyzer.count_by_category()
+        
+        # Calculate time spent in each situation (approximate)
+        total_events = len(self.events)
+        situation_percentages = {code: (count / total_events * 100) for code, count in situation_counts.items()}
+        
+        return {
+            'game_id': self.game_id,
+            'total_events': total_events,
+            'situation_counts': situation_counts,
+            'situation_percentages': situation_percentages,
+            'category_counts': category_counts,
+            'most_common_situations': self.analyzer.get_most_common_situations(5)
+        }
+```
+
+## Conclusion
+
+This comprehensive documentation of NHL API situation codes provides the foundation for understanding and processing game context data. Situation codes serve as the primary system for tracking game states, power play situations, and goalie pulled scenarios across all NHL datasets.
+
+The structured approach to situation code processing, validation, and integration ensures data quality and enables advanced analytics for game flow analysis, power play effectiveness, and situational performance tracking.
+
+Situation codes are fundamental to understanding the context of all NHL game events and are essential for any system that processes NHL game data at the event level.
+description:
+globs:
+alwaysApply: true
+---

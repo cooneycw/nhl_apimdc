@@ -1,0 +1,693 @@
+---
+description: "NHL player performance evaluation strategy and key dimensions for granular shift-level analysis"
+globs: ["**/*.py", "src/nhl_api/**/*.py", "tests/**/*.py", "data/**/*"]
+alwaysApply: true
+---
+
+# NHL Player Performance Evaluation Strategy
+
+## Overview
+
+This document outlines a comprehensive strategy for evaluating NHL player performance using granular shift-level data, enabling second-by-second analysis of player contributions, situational effectiveness, and contextual performance factors.
+
+## Core Performance Dimensions
+
+### 1. Time-Based Dimensions (Critical for Shift Analysis)
+
+#### Shift-Level Granularity
+```python
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List, Optional
+from enum import Enum
+
+class GameSituation(Enum):
+    EVEN_STRENGTH = "even_strength"
+    POWER_PLAY = "power_play"
+    PENALTY_KILL = "penalty_kill"
+    EMPTY_NET = "empty_net"
+    PULLED_GOALIE = "pulled_goalie"
+
+@dataclass
+class PlayerShift:
+    player_id: int
+    game_id: int
+    period: int
+    start_time: datetime
+    end_time: datetime
+    duration_seconds: int
+    situation: GameSituation
+    line_combination: List[int]  # Other players on ice
+    home_team: bool
+    score_differential: int  # Positive = leading, negative = trailing
+    goals_for: int
+    goals_against: int
+    shots_for: int
+    shots_against: int
+    faceoffs_won: int
+    faceoffs_lost: int
+    hits: int
+    blocked_shots: int
+    takeaways: int
+    giveaways: int
+    penalty_minutes: int
+```
+
+#### Second-by-Second Data Points
+```python
+@dataclass
+class GameSecond:
+    game_id: int
+    period: int
+    second_in_period: int
+    timestamp: datetime
+    home_players_on_ice: List[int]
+    away_players_on_ice: List[int]
+    home_goalie: Optional[int]
+    away_goalie: Optional[int]
+    situation_code: str  # 4-digit NHL situation code
+    home_score: int
+    away_score: int
+    power_play_active: bool
+    penalty_kill_active: bool
+    empty_net_home: bool
+    empty_net_away: bool
+    events: List[GameEvent]  # Goals, penalties, faceoffs, etc.
+```
+
+### 2. Team Context Dimensions
+
+#### Roster and Lineup Information
+```python
+@dataclass
+class TeamContext:
+    team_id: int
+    home_team: bool
+    active_players: List[int]
+    scratched_players: List[int]
+    starting_lineup: List[int]
+    line_combinations: Dict[str, List[int]]  # Line name -> player IDs
+    defensive_pairs: List[List[int]]
+    starting_goalie: int
+    backup_goalie: int
+    head_coach: str
+    venue: str
+    timezone: str
+```
+
+#### Game Situation Context
+```python
+@dataclass
+class GameSituationContext:
+    situation_code: str  # 4-digit NHL code
+    description: str
+    home_skaters: int
+    away_skaters: int
+    home_goalie_in_net: bool
+    away_goalie_in_net: bool
+    power_play_team: Optional[str]  # "home" or "away"
+    penalty_kill_team: Optional[str]
+    empty_net_situation: bool
+    pulled_goalie_situation: bool
+
+# Situation Code Mapping
+SITUATION_CODES = {
+    "1551": GameSituationContext("1551", "Even Strength 5v5", 5, 5, True, True, None, None, False, False),
+    "1541": GameSituationContext("1541", "Away Power Play 5v4", 5, 4, True, True, "away", "home", False, False),
+    "1451": GameSituationContext("1451", "Home Power Play 4v5", 4, 5, True, True, "home", "away", False, False),
+    "1560": GameSituationContext("1560", "Away PP, Home Goalie Pulled", 5, 6, False, True, "away", "home", True, False),
+    "0651": GameSituationContext("0651", "Away PP, Away Goalie Pulled", 6, 5, True, False, "away", "home", False, True),
+    "0101": GameSituationContext("0101", "Both Goalies Pulled 6v6", 6, 6, False, False, None, None, True, True),
+}
+```
+
+### 3. Performance Metrics Dimensions
+
+#### Offensive Performance Metrics
+```python
+@dataclass
+class OffensiveMetrics:
+    goals: int
+    assists: int
+    primary_assists: int
+    secondary_assists: int
+    points: int
+    shots_on_goal: int
+    shot_attempts: int
+    missed_shots: int
+    blocked_shots_against: int
+    shooting_percentage: float
+    goals_per_60: float
+    assists_per_60: float
+    points_per_60: float
+    shots_per_60: float
+    power_play_goals: int
+    power_play_assists: int
+    power_play_points: int
+    even_strength_goals: int
+    even_strength_assists: int
+    even_strength_points: int
+    short_handed_goals: int
+    short_handed_assists: int
+    short_handed_points: int
+    game_winning_goals: int
+    overtime_goals: int
+    empty_net_goals: int
+```
+
+#### Defensive Performance Metrics
+```python
+@dataclass
+class DefensiveMetrics:
+    plus_minus: int
+    goals_against: int
+    goals_against_per_60: float
+    shots_against: int
+    shots_against_per_60: float
+    blocked_shots: int
+    blocked_shots_per_60: float
+    hits: int
+    hits_per_60: float
+    takeaways: int
+    takeaways_per_60: float
+    giveaways: int
+    giveaways_per_60: float
+    penalty_minutes: int
+    penalties_drawn: int
+    penalty_kill_time: int
+    penalty_kill_goals_against: int
+    penalty_kill_save_percentage: float
+    defensive_zone_starts: int
+    defensive_zone_start_percentage: float
+    neutral_zone_starts: int
+    offensive_zone_starts: int
+    offensive_zone_start_percentage: float
+```
+
+#### Special Teams Performance
+```python
+@dataclass
+class SpecialTeamsMetrics:
+    power_play_time: int
+    power_play_goals: int
+    power_play_assists: int
+    power_play_points: int
+    power_play_goals_per_60: float
+    power_play_assists_per_60: float
+    power_play_points_per_60: float
+    penalty_kill_time: int
+    penalty_kill_goals_against: int
+    penalty_kill_goals_against_per_60: float
+    short_handed_goals: int
+    short_handed_assists: int
+    short_handed_points: int
+    faceoff_wins: int
+    faceoff_losses: int
+    faceoff_attempts: int
+    faceoff_percentage: float
+    offensive_zone_faceoffs: int
+    defensive_zone_faceoffs: int
+    neutral_zone_faceoffs: int
+```
+
+### 4. Advanced Analytics Dimensions
+
+#### Possession and Quality Metrics
+```python
+@dataclass
+class PossessionMetrics:
+    corsi_for: int  # Shot attempts for while on ice
+    corsi_against: int  # Shot attempts against while on ice
+    corsi_percentage: float
+    fenwick_for: int  # Unblocked shot attempts for
+    fenwick_against: int  # Unblocked shot attempts against
+    fenwick_percentage: float
+    expected_goals_for: float
+    expected_goals_against: float
+    expected_goals_percentage: float
+    scoring_chances_for: int
+    scoring_chances_against: int
+    scoring_chance_percentage: float
+    high_danger_chances_for: int
+    high_danger_chances_against: int
+    high_danger_chance_percentage: float
+    zone_starts: int
+    zone_start_percentage: float
+    zone_exits: int
+    zone_entries: int
+    controlled_zone_entries: int
+    controlled_entry_percentage: float
+```
+
+#### Quality of Competition and Teammates
+```python
+@dataclass
+class QualityMetrics:
+    average_opponent_time_on_ice: float
+    average_opponent_points_per_game: float
+    average_opponent_goals_per_game: float
+    average_teammate_time_on_ice: float
+    average_teammate_points_per_game: float
+    average_teammate_goals_per_game: float
+    quality_of_competition_score: float
+    quality_of_teammates_score: float
+    relative_corsi_percentage: float  # vs. teammates
+    relative_fenwick_percentage: float
+    relative_expected_goals_percentage: float
+    relative_goals_percentage: float
+    pdo: float  # Shooting percentage + save percentage while on ice
+    on_ice_shooting_percentage: float
+    on_ice_save_percentage: float
+```
+
+#### Contextual Performance Factors
+```python
+@dataclass
+class ContextualFactors:
+    game_state: str  # "leading", "trailing", "tied"
+    score_differential: int
+    period: int
+    time_remaining_in_period: int
+    time_remaining_in_game: int
+    rest_days: int  # Days since last game
+    back_to_back: bool
+    travel_distance: float  # Miles traveled
+    home_ice_advantage: bool
+    playoff_game: bool
+    rivalry_game: bool
+    injury_status: str  # "healthy", "playing_through_injury", "returning_from_injury"
+    line_matching: str  # "against_top_line", "against_middle_lines", "against_bottom_lines"
+    situational_usage: str  # "offensive_zone_starts", "defensive_zone_starts", "neutral_zone_starts"
+```
+
+## Data Sources and Integration Strategy
+
+### Primary Data Sources
+```python
+class DataSourceConfig:
+    """Configuration for different NHL data sources"""
+    
+    # Shift-level data (most granular)
+    SHIFT_CHARTS = {
+        "url_pattern": "https://www.nhl.com/stats/shiftcharts?id={game_id}",
+        "update_frequency": "real_time",
+        "data_granularity": "shift_level",
+        "key_fields": ["player_id", "start_time", "end_time", "duration", "period"]
+    }
+    
+    # Time on ice breakdown
+    TIME_ON_ICE_REPORTS = {
+        "url_pattern": "https://www.nhl.com/scores/htmlreports/{season}/TO{game_id}.HTM",
+        "update_frequency": "post_game",
+        "data_granularity": "period_level",
+        "key_fields": ["player_id", "period", "time_on_ice", "shifts"]
+    }
+    
+    # Player participation verification
+    BOXSCORE_DATA = {
+        "endpoint": "/gamecenter/{game_id}/boxscore",
+        "update_frequency": "real_time",
+        "data_granularity": "game_level",
+        "key_fields": ["player_id", "time_on_ice", "goals", "assists", "shots"]
+    }
+    
+    # Event-level data
+    PLAY_BY_PLAY = {
+        "endpoint": "/gamecenter/{game_id}/play-by-play",
+        "update_frequency": "real_time",
+        "data_granularity": "event_level",
+        "key_fields": ["event_type", "player_id", "timestamp", "situation_code"]
+    }
+    
+    # Supporting data sources
+    EVENT_SUMMARY = {
+        "url_pattern": "https://www.nhl.com/scores/htmlreports/{season}/ES{game_id}.HTM",
+        "update_frequency": "post_game",
+        "data_granularity": "event_level",
+        "key_fields": ["penalties", "goals", "timeouts", "period_ends"]
+    }
+    
+    FACEOFF_SUMMARY = {
+        "url_pattern": "https://www.nhl.com/scores/htmlreports/{season}/FS{game_id}.HTM",
+        "update_frequency": "post_game",
+        "data_granularity": "faceoff_level",
+        "key_fields": ["player_id", "faceoff_wins", "faceoff_losses", "zone"]
+    }
+    
+    SHOT_SUMMARY = {
+        "url_pattern": "https://www.nhl.com/scores/htmlreports/{season}/SS{game_id}.HTM",
+        "update_frequency": "post_game",
+        "data_granularity": "shot_level",
+        "key_fields": ["player_id", "shot_type", "shot_location", "goal"]
+    }
+```
+
+### Data Integration Strategy
+```python
+class DataIntegrationManager:
+    """Manages integration of multiple data sources for comprehensive analysis"""
+    
+    def __init__(self, storage_tier: StorageTier):
+        self.storage = storage_tier
+        self.data_sources = DataSourceConfig()
+    
+    async def create_second_by_second_timeline(self, game_id: int) -> List[GameSecond]:
+        """Create a comprehensive second-by-second timeline for a game"""
+        
+        # Get shift data
+        shift_data = await self.get_shift_chart(game_id)
+        
+        # Get play-by-play events
+        play_by_play = await self.get_play_by_play(game_id)
+        
+        # Get boxscore for verification
+        boxscore = await self.get_boxscore(game_id)
+        
+        # Create timeline
+        timeline = []
+        game_duration = self.calculate_game_duration(boxscore)
+        
+        for second in range(game_duration):
+            game_second = GameSecond(
+                game_id=game_id,
+                period=self.get_period_from_second(second),
+                second_in_period=second % 1200,  # 20 minutes per period
+                timestamp=self.get_timestamp_from_second(game_id, second),
+                home_players_on_ice=self.get_players_on_ice(shift_data, second, home=True),
+                away_players_on_ice=self.get_players_on_ice(shift_data, second, home=False),
+                home_goalie=self.get_goalie_on_ice(shift_data, second, home=True),
+                away_goalie=self.get_goalie_on_ice(shift_data, second, home=False),
+                situation_code=self.get_situation_code(shift_data, second),
+                home_score=self.get_score_at_second(play_by_play, second, home=True),
+                away_score=self.get_score_at_second(play_by_play, second, home=False),
+                power_play_active=self.is_power_play_active(play_by_play, second),
+                penalty_kill_active=self.is_penalty_kill_active(play_by_play, second),
+                empty_net_home=self.is_empty_net(shift_data, second, home=True),
+                empty_net_away=self.is_empty_net(shift_data, second, home=False),
+                events=self.get_events_at_second(play_by_play, second)
+            )
+            timeline.append(game_second)
+        
+        return timeline
+    
+    async def aggregate_player_performance(self, game_id: int, player_id: int) -> PlayerPerformance:
+        """Aggregate comprehensive player performance from granular data"""
+        
+        timeline = await self.create_second_by_second_timeline(game_id)
+        
+        # Filter timeline for specific player
+        player_seconds = [s for s in timeline if player_id in 
+                         (s.home_players_on_ice + s.away_players_on_ice)]
+        
+        # Calculate metrics by situation
+        even_strength_metrics = self.calculate_situation_metrics(
+            player_seconds, GameSituation.EVEN_STRENGTH)
+        power_play_metrics = self.calculate_situation_metrics(
+            player_seconds, GameSituation.POWER_PLAY)
+        penalty_kill_metrics = self.calculate_situation_metrics(
+            player_seconds, GameSituation.PENALTY_KILL)
+        
+        # Calculate possession metrics
+        possession_metrics = self.calculate_possession_metrics(player_seconds)
+        
+        # Calculate quality metrics
+        quality_metrics = self.calculate_quality_metrics(game_id, player_id, player_seconds)
+        
+        # Calculate contextual factors
+        contextual_factors = self.calculate_contextual_factors(game_id, player_seconds)
+        
+        return PlayerPerformance(
+            player_id=player_id,
+            game_id=game_id,
+            even_strength=even_strength_metrics,
+            power_play=power_play_metrics,
+            penalty_kill=penalty_kill_metrics,
+            possession=possession_metrics,
+            quality=quality_metrics,
+            contextual=contextual_factors
+        )
+```
+
+## Performance Evaluation Framework
+
+### Comprehensive Player Performance Model
+```python
+@dataclass
+class PlayerPerformance:
+    """Comprehensive player performance evaluation"""
+    player_id: int
+    game_id: int
+    
+    # Situation-specific performance
+    even_strength: OffensiveMetrics
+    power_play: OffensiveMetrics
+    penalty_kill: DefensiveMetrics
+    
+    # Advanced metrics
+    possession: PossessionMetrics
+    quality: QualityMetrics
+    contextual: ContextualFactors
+    
+    # Aggregated metrics
+    total_time_on_ice: int
+    total_goals: int
+    total_assists: int
+    total_points: int
+    plus_minus: int
+    
+    # Efficiency metrics
+    goals_per_60: float
+    assists_per_60: float
+    points_per_60: float
+    corsi_percentage: float
+    fenwick_percentage: float
+    expected_goals_percentage: float
+    
+    # Situational effectiveness
+    power_play_efficiency: float
+    penalty_kill_efficiency: float
+    even_strength_efficiency: float
+    
+    # Quality-adjusted metrics
+    quality_adjusted_goals: float
+    quality_adjusted_assists: float
+    quality_adjusted_points: float
+```
+
+### Performance Evaluation Methods
+```python
+class PerformanceEvaluator:
+    """Evaluates player performance using multiple methodologies"""
+    
+    def __init__(self, data_manager: DataIntegrationManager):
+        self.data_manager = data_manager
+    
+    async def evaluate_player_game_performance(self, game_id: int, player_id: int) -> PerformanceEvaluation:
+        """Comprehensive single-game performance evaluation"""
+        
+        performance = await self.data_manager.aggregate_player_performance(game_id, player_id)
+        
+        # Calculate performance scores
+        offensive_score = self.calculate_offensive_score(performance)
+        defensive_score = self.calculate_defensive_score(performance)
+        possession_score = self.calculate_possession_score(performance)
+        situational_score = self.calculate_situational_score(performance)
+        quality_score = self.calculate_quality_score(performance)
+        
+        # Weighted overall score
+        overall_score = (
+            offensive_score * 0.3 +
+            defensive_score * 0.25 +
+            possession_score * 0.2 +
+            situational_score * 0.15 +
+            quality_score * 0.1
+        )
+        
+        return PerformanceEvaluation(
+            player_id=player_id,
+            game_id=game_id,
+            performance=performance,
+            scores={
+                "offensive": offensive_score,
+                "defensive": defensive_score,
+                "possession": possession_score,
+                "situational": situational_score,
+                "quality": quality_score,
+                "overall": overall_score
+            },
+            percentile_rankings=self.calculate_percentile_rankings(performance),
+            game_impact=self.calculate_game_impact(performance)
+        )
+    
+    async def evaluate_player_season_performance(self, season_id: int, player_id: int) -> SeasonPerformanceEvaluation:
+        """Season-long performance evaluation with trends and consistency analysis"""
+        
+        # Get all games for player in season
+        games = await self.get_player_games(season_id, player_id)
+        
+        # Evaluate each game
+        game_evaluations = []
+        for game in games:
+            evaluation = await self.evaluate_player_game_performance(game.id, player_id)
+            game_evaluations.append(evaluation)
+        
+        # Calculate season trends
+        trends = self.calculate_performance_trends(game_evaluations)
+        
+        # Calculate consistency metrics
+        consistency = self.calculate_consistency_metrics(game_evaluations)
+        
+        # Calculate season totals and averages
+        season_totals = self.calculate_season_totals(game_evaluations)
+        season_averages = self.calculate_season_averages(game_evaluations)
+        
+        return SeasonPerformanceEvaluation(
+            player_id=player_id,
+            season_id=season_id,
+            game_evaluations=game_evaluations,
+            trends=trends,
+            consistency=consistency,
+            totals=season_totals,
+            averages=season_averages
+        )
+```
+
+## Data Quality and Validation
+
+### Reconciliation Tests
+```python
+class DataQualityValidator:
+    """Validates data quality and consistency across sources"""
+    
+    async def validate_shift_data_integrity(self, game_id: int) -> ValidationResult:
+        """Validate shift data against boxscore totals"""
+        
+        shift_data = await self.get_shift_chart(game_id)
+        boxscore = await self.get_boxscore(game_id)
+        
+        validation_results = []
+        
+        for player in boxscore.players:
+            # Calculate total time from shifts
+            shift_total = sum(shift.duration_seconds for shift in shift_data 
+                            if shift.player_id == player.player_id)
+            
+            # Compare with boxscore time
+            boxscore_time = player.time_on_ice_seconds
+            
+            # Allow for small rounding differences
+            if abs(shift_total - boxscore_time) > 1:
+                validation_results.append(
+                    ValidationIssue(
+                        type="time_mismatch",
+                        player_id=player.player_id,
+                        shift_total=shift_total,
+                        boxscore_total=boxscore_time,
+                        difference=shift_total - boxscore_time
+                    )
+                )
+        
+        return ValidationResult(
+            game_id=game_id,
+            issues=validation_results,
+            is_valid=len(validation_results) == 0
+        )
+    
+    async def validate_situation_code_accuracy(self, game_id: int) -> ValidationResult:
+        """Validate situation codes against penalty and goalie data"""
+        
+        timeline = await self.create_second_by_second_timeline(game_id)
+        play_by_play = await self.get_play_by_play(game_id)
+        
+        validation_results = []
+        
+        for second in timeline:
+            # Check if situation code matches actual game state
+            expected_situation = self.calculate_expected_situation_code(second)
+            
+            if second.situation_code != expected_situation:
+                validation_results.append(
+                    ValidationIssue(
+                        type="situation_code_mismatch",
+                        timestamp=second.timestamp,
+                        actual_code=second.situation_code,
+                        expected_code=expected_situation
+                    )
+                )
+        
+        return ValidationResult(
+            game_id=game_id,
+            issues=validation_results,
+            is_valid=len(validation_results) == 0
+        )
+```
+
+## Implementation Strategy
+
+### Phase 1: Foundation (Weeks 1-4)
+1. **Set up data source integration**
+2. **Implement shift chart parsing**
+3. **Create basic timeline generation**
+4. **Establish data validation framework**
+
+### Phase 2: Core Metrics (Weeks 5-8)
+1. **Implement offensive metrics calculation**
+2. **Add defensive metrics**
+3. **Create special teams analysis**
+4. **Build possession metrics**
+
+### Phase 3: Advanced Analytics (Weeks 9-12)
+1. **Add quality of competition metrics**
+2. **Implement contextual factors**
+3. **Create performance evaluation framework**
+4. **Build trend analysis**
+
+### Phase 4: Optimization (Weeks 13-16)
+1. **Performance optimization**
+2. **Data compression and storage**
+3. **Real-time processing capabilities**
+4. **Advanced visualization tools**
+
+## Monitoring and Maintenance
+
+### Key Performance Indicators
+```python
+class PerformanceKPIs:
+    """Key performance indicators for the evaluation system"""
+    
+    # Data quality metrics
+    data_completeness_rate: float  # Percentage of complete data
+    validation_error_rate: float   # Percentage of validation failures
+    reconciliation_success_rate: float  # Percentage of successful reconciliations
+    
+    # Processing metrics
+    timeline_generation_time: float  # Average time to generate timeline
+    performance_calculation_time: float  # Average time to calculate performance
+    data_processing_throughput: float  # Games processed per hour
+    
+    # Accuracy metrics
+    prediction_accuracy: float  # Accuracy of performance predictions
+    trend_detection_accuracy: float  # Accuracy of trend identification
+    outlier_detection_rate: float  # Rate of outlier detection
+    
+    # System health metrics
+    api_response_time: float  # Average API response time
+    cache_hit_rate: float  # Cache hit percentage
+    error_rate: float  # System error rate
+```
+
+### Maintenance Schedule
+- **Daily**: Data quality validation and reconciliation
+- **Weekly**: Performance trend analysis and system optimization
+- **Monthly**: Model recalibration and accuracy assessment
+- **Quarterly**: Feature updates and methodology improvements
+
+## Conclusion
+
+This comprehensive player performance evaluation strategy provides a framework for analyzing NHL players at the most granular level possible. By capturing second-by-second data and contextualizing it with game situations, quality of competition, and environmental factors, we can gain unprecedented insights into player effectiveness and contribution.
+
+The modular design allows for incremental implementation while maintaining data integrity and validation throughout the process. The result is a robust, scalable system that can evolve with the sport and provide increasingly sophisticated analysis capabilities.
+description:
+globs:
+alwaysApply: true
+---

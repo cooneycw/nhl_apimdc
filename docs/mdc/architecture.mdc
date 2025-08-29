@@ -1,0 +1,257 @@
+---
+description: "Technical architecture, design patterns, and system components"
+globs: ["**/*.py", "src/nhl_api/**/*.py", "tests/**/*.py"]
+alwaysApply: true
+---
+
+# Architecture Design
+
+## System Architecture
+
+### Core Components
+1. **API Client** - Main interface for NHL API communication
+2. **Type System** - TypeScript definitions for all data structures
+3. **Cache Layer** - In-memory and persistent caching
+4. **Rate Limiter** - Request throttling and backoff
+5. **Error Handler** - Centralized error management
+6. **Logger** - Structured logging for debugging
+
+### Design Patterns
+
+#### Repository Pattern
+```python
+from abc import ABC, abstractmethod
+from typing import List, Optional
+from .models import Team, Player, Game
+
+class NHLRepository(ABC):
+    @abstractmethod
+    async def get_teams(self) -> List[Team]:
+        pass
+    
+    @abstractmethod
+    async def get_team(self, team_id: int) -> Team:
+        pass
+    
+    @abstractmethod
+    async def get_players(self) -> List[Player]:
+        pass
+    
+    @abstractmethod
+    async def get_player(self, player_id: int) -> Player:
+        pass
+    
+    @abstractmethod
+    async def get_games(self, date: Optional[str] = None) -> List[Game]:
+        pass
+    
+    @abstractmethod
+    async def get_game(self, game_id: int) -> Game:
+        pass
+```
+
+#### Factory Pattern
+```python
+from typing import Optional
+from .client import NHLClient
+from .cache import Cache
+from .rate_limit import RateLimit
+
+class NHLClientFactory:
+    @staticmethod
+    def create(config: NHLConfig) -> NHLClient:
+        pass
+    
+    @staticmethod
+    def create_with_cache(config: NHLConfig, cache: Cache) -> NHLClient:
+        pass
+    
+    @staticmethod
+    def create_with_rate_limit(config: NHLConfig, rate_limit: RateLimit) -> NHLClient:
+        pass
+```
+
+#### Strategy Pattern
+```python
+from abc import ABC, abstractmethod
+from typing import Any, Optional
+
+class CacheStrategy(ABC):
+    @abstractmethod
+    async def get(self, key: str) -> Optional[Any]:
+        pass
+    
+    @abstractmethod
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        pass
+    
+    @abstractmethod
+    async def delete(self, key: str) -> None:
+        pass
+
+class MemoryCacheStrategy(CacheStrategy):
+    pass
+
+class RedisCacheStrategy(CacheStrategy):
+    pass
+```
+
+## Module Structure
+
+### src/api/
+- `client.ts` - Main API client
+- `endpoints/` - Individual endpoint handlers
+- `middleware/` - Request/response middleware
+- `config.ts` - Configuration management
+
+### src/types/
+- `api.ts` - API response types
+- `requests.ts` - Request parameter types
+- `common.ts` - Shared type definitions
+
+### src/utils/
+- `cache.ts` - Caching utilities
+- `rateLimit.ts` - Rate limiting logic
+- `validation.ts` - Input validation
+- `transforms.ts` - Data transformation
+
+### src/errors/
+- `NHLAPIError.ts` - Custom error classes
+- `errorCodes.ts` - Error code definitions
+
+## Data Flow
+
+```
+User Request → Validation → Cache Check → Rate Limit Check → API Call → Transform → Cache Store → Response
+```
+
+## Configuration Management
+
+### Environment Variables
+```bash
+NHL_API_BASE_URL=https://api-web.nhle.com/v1
+NHL_API_TIMEOUT=30000
+NHL_CACHE_TTL=3600
+NHL_RATE_LIMIT_PER_MINUTE=100
+NHL_RATE_LIMIT_BURST=10
+```
+
+### Configuration Interface
+```python
+from pydantic import BaseModel
+from typing import Literal
+
+class CacheConfig(BaseModel):
+    enabled: bool = True
+    ttl: int = 3600
+    strategy: Literal['memory', 'redis'] = 'memory'
+
+class RateLimitConfig(BaseModel):
+    enabled: bool = True
+    requests_per_minute: int = 100
+    burst_limit: int = 10
+
+class RetryConfig(BaseModel):
+    enabled: bool = True
+    max_attempts: int = 3
+    backoff_multiplier: float = 2.0
+
+class NHLConfig(BaseModel):
+    base_url: str = "https://api-web.nhle.com/v1"
+    timeout: int = 30000
+    user_agent: str = "nhl-api-python/1.0.0"
+    cache: CacheConfig = CacheConfig()
+    rate_limit: RateLimitConfig = RateLimitConfig()
+    retry: RetryConfig = RetryConfig()
+```
+
+## Error Handling Strategy
+
+### Error Hierarchy
+```
+NHLAPIError
+├── NHLValidationError
+├── NHLRateLimitError
+├── NHLNotFoundError
+├── NHLServerError
+└── NHLNetworkError
+```
+
+### Error Response Format
+```python
+from pydantic import BaseModel
+from typing import Any, Optional
+from datetime import datetime
+
+class ErrorResponse(BaseModel):
+    error: dict[str, Any] = {
+        "code": str,
+        "message": str,
+        "details": Optional[Any],
+        "timestamp": datetime,
+        "request_id": str
+    }
+```
+
+## Performance Considerations
+
+### Caching Strategy
+- **L1 Cache**: In-memory (LRU)
+- **L2 Cache**: Redis (optional)
+- **Cache Keys**: URL-based with parameter hash
+- **Cache Invalidation**: TTL-based with manual invalidation
+
+### Rate Limiting
+- **Token Bucket Algorithm**
+- **Distributed Rate Limiting** (Redis-based)
+- **Exponential Backoff** for retries
+- **Circuit Breaker** for fault tolerance
+
+### Optimization Techniques
+- **Request Batching** for multiple endpoints
+- **Response Compression** (gzip)
+- **Connection Pooling** for HTTP requests
+- **Lazy Loading** for large datasets
+
+## Security Considerations
+
+### Input Validation
+- **Parameter Sanitization**
+- **Type Checking**
+- **Length Limits**
+- **Format Validation**
+
+### Output Sanitization
+- **XSS Prevention**
+- **Data Masking** for sensitive information
+- **Response Size Limits**
+
+### Authentication
+- **API Key Management** (if required)
+- **Request Signing**
+- **Token Rotation**
+
+## Monitoring and Observability
+
+### Metrics
+- **Request Count** (success/failure)
+- **Response Time** (p50, p95, p99)
+- **Cache Hit Rate**
+- **Rate Limit Violations**
+- **Error Rate** by type
+
+### Logging
+- **Structured Logging** (JSON)
+- **Request/Response Logging**
+- **Error Stack Traces**
+- **Performance Metrics**
+
+### Health Checks
+- **API Endpoint Health**
+- **Cache Health**
+- **Rate Limiter Status**
+- **Dependency Health**
+description:
+globs:
+alwaysApply: true
+---

@@ -1,0 +1,707 @@
+---
+description: "NHL API Event Codes and Event Types - Comprehensive documentation of all event codes found in NHL API datasets"
+globs: ["**/*.py", "src/nhl_api/**/*.py", "tests/**/*.py", "data/**/*"]
+alwaysApply: true
+---
+
+# NHL API Event Codes and Event Types
+
+## Overview
+
+This document provides comprehensive documentation of all event codes and event types found within NHL API datasets, including play-by-play data, shift charts, time-on-ice reports, and other granular datasets. These event codes are essential for understanding game flow, player actions, and situational analysis.
+
+## Event Code Structure
+
+### Core Event Fields
+```python
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional, List, Dict, Any
+from enum import Enum
+
+@dataclass
+class NHLEvent:
+    """Base NHL event structure"""
+    event_id: int
+    period_descriptor: Dict[str, Any]
+    time_in_period: str  # "MM:SS" format
+    time_remaining: str  # "MM:SS" format
+    situation_code: str  # 4-digit situation code
+    home_team_defending_side: str  # "left" or "right"
+    type_code: int  # Event type code
+    type_desc_key: str  # Event description key
+    sort_order: int
+    details: Optional[Dict[str, Any]] = None
+```
+
+## Event Type Codes
+
+### Primary Event Types (500-599 Series)
+
+#### Game Flow Events
+```python
+class GameFlowEvents(Enum):
+    """Game flow and period management events"""
+    PERIOD_START = 520
+    PERIOD_END = 521
+    GAME_END = 524
+    STOPPAGE = 516
+    DELAYED_PENALTY = 535
+
+# Event Type Code: 520 - Period Start
+# Description: "period-start"
+# Context: Marks the beginning of a period
+# Details: None
+# Example: {"eventId": 9, "typeCode": 520, "typeDescKey": "period-start", "situationCode": "1551"}
+
+# Event Type Code: 521 - Period End  
+# Description: "period-end"
+# Context: Marks the end of a period
+# Details: None
+# Example: {"eventId": 10, "typeCode": 521, "typeDescKey": "period-end", "situationCode": "1551"}
+
+# Event Type Code: 524 - Game End
+# Description: "game-end"
+# Context: Marks the end of the game
+# Details: None
+# Example: {"eventId": 11, "typeCode": 524, "typeDescKey": "game-end", "situationCode": "1551"}
+
+# Event Type Code: 516 - Stoppage
+# Description: "stoppage"
+# Context: Play stoppage (whistle, timeout, etc.)
+# Details: None
+# Example: {"eventId": 12, "typeCode": 516, "typeDescKey": "stoppage", "situationCode": "1551"}
+
+# Event Type Code: 535 - Delayed Penalty
+# Description: "delayed-penalty"
+# Context: Delayed penalty situation
+# Details: None
+# Example: {"eventId": 13, "typeCode": 535, "typeDescKey": "delayed-penalty", "situationCode": "1551"}
+```
+
+#### Player Action Events
+```python
+class PlayerActionEvents(Enum):
+    """Player action and interaction events"""
+    FACEOFF = 502
+    HIT = 503
+    GIVEAWAY = 504
+    GOAL = 505
+    SHOT_ON_GOAL = 506
+    MISSED_SHOT = 507
+    BLOCKED_SHOT = 508
+    PENALTY = 509
+    TAKEAWAY = 525
+
+# Event Type Code: 502 - Faceoff
+# Description: "faceoff"
+# Context: Faceoff event
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "losingPlayerId": int,
+#   "winningPlayerId": int,
+#   "xCoord": int,
+#   "yCoord": int,
+#   "zoneCode": str  # "O", "D", "N" (Offensive, Defensive, Neutral)
+# }
+# Example: {"eventId": 8, "typeCode": 502, "typeDescKey": "faceoff", "details": {"winningPlayerId": 8478445, "losingPlayerId": 8484144, "zoneCode": "N"}}
+
+# Event Type Code: 503 - Hit
+# Description: "hit"
+# Context: Player hit/body check
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player delivering hit
+#   "xCoord": int,
+#   "yCoord": int
+# }
+# Example: {"eventId": 68, "typeCode": 503, "typeDescKey": "hit", "details": {"playerId": 8478403}}
+
+# Event Type Code: 504 - Giveaway
+# Description: "giveaway"
+# Context: Player gives away possession
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player committing giveaway
+#   "xCoord": int,
+#   "yCoord": int
+# }
+# Example: {"eventId": 56, "typeCode": 504, "typeDescKey": "giveaway", "details": {"playerId": 8484144}}
+
+# Event Type Code: 505 - Goal
+# Description: "goal"
+# Context: Goal scored
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Goal scorer
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str,  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+#   "goalModifier": str,  # "none", "empty-net", "power-play", "short-handed", etc.
+#   "assists": List[Dict[str, Any]]  # Assist details
+# }
+# Example: {"eventId": 265, "typeCode": 505, "typeDescKey": "goal", "details": {"playerId": 8481624, "shotType": "wrist", "goalModifier": "none"}}
+
+# Event Type Code: 506 - Shot on Goal
+# Description: "shot-on-goal"
+# Context: Shot on goal (saved or goal)
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Shooter
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str,  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+#   "goalieId": int  # Goalie who made save (if applicable)
+# }
+# Example: {"eventId": 67, "typeCode": 506, "typeDescKey": "shot-on-goal", "details": {"playerId": 8484144, "shotType": "wrist"}}
+
+# Event Type Code: 507 - Missed Shot
+# Description: "missed-shot"
+# Context: Shot that missed the net
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Shooter
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str,  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+#   "missedNet": str  # "wide", "over", "post", "crossbar"
+# }
+# Example: {"eventId": 58, "typeCode": 507, "typeDescKey": "missed-shot", "details": {"playerId": 8484144, "shotType": "wrist", "missedNet": "wide"}}
+
+# Event Type Code: 508 - Blocked Shot
+# Description: "blocked-shot"
+# Context: Shot blocked by opposing player
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Shooter
+#   "blockingPlayerId": int,  # Player who blocked the shot
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+# }
+# Example: {"eventId": 57, "typeCode": 508, "typeDescKey": "blocked-shot", "details": {"playerId": 8484144, "blockingPlayerId": 8478403}}
+
+# Event Type Code: 509 - Penalty
+# Description: "penalty"
+# Context: Penalty called
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player penalized
+#   "penaltyMinutes": int,
+#   "penaltySeverity": str,  # "minor", "major", "misconduct", "game-misconduct", "match"
+#   "penaltyCode": str,  # "hooking", "tripping", "slashing", "roughing", etc.
+#   "drawnBy": int  # Player who drew the penalty (if applicable)
+# }
+# Example: {"eventId": 666, "typeCode": 509, "typeDescKey": "penalty", "details": {"playerId": 8484144, "penaltyMinutes": 2, "penaltyCode": "hooking"}}
+
+# Event Type Code: 525 - Takeaway
+# Description: "takeaway"
+# Context: Player takes away possession
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player with takeaway
+#   "xCoord": int,
+#   "yCoord": int
+# }
+# Example: {"eventId": 66, "typeCode": 525, "typeDescKey": "takeaway", "details": {"playerId": 8484144}}
+```
+
+### Secondary Event Types (600+ Series)
+
+#### Advanced Events
+```python
+class AdvancedEvents(Enum):
+    """Advanced and specialized events"""
+    GOALIE_CHANGE = 601
+    TIMEOUT = 602
+    CHALLENGE = 603
+    SHOOTOUT_ATTEMPT = 604
+    EMPTY_NET_GOAL = 605
+    POWER_PLAY_GOAL = 606
+    SHORT_HANDED_GOAL = 607
+    GAME_WINNING_GOAL = 608
+    OVERTIME_GOAL = 609
+
+# Note: These codes are inferred from context and may vary
+# Event Type Code: 601 - Goalie Change
+# Description: "goalie-change"
+# Context: Goalie substitution
+# Details: {
+#   "teamId": int,
+#   "goalieIn": int,
+#   "goalieOut": int
+# }
+
+# Event Type Code: 602 - Timeout
+# Description: "timeout"
+# Context: Team timeout
+# Details: {
+#   "teamId": int,
+#   "timeoutType": str  # "full", "30-second"
+# }
+
+# Event Type Code: 603 - Challenge
+# Description: "challenge"
+# Context: Coach's challenge
+# Details: {
+#   "teamId": int,
+#   "challengeType": str,  # "goalie-interference", "offside", "hand-pass"
+#   "result": str  # "upheld", "overturned"
+# }
+```
+
+## Event Details and Context
+
+### Shot Types
+```python
+class ShotTypes(Enum):
+    """Types of shots tracked in NHL events"""
+    WRIST = "wrist"
+    SLAP = "slap"
+    BACKHAND = "backhand"
+    DEFLECTION = "deflection"
+    TIP_IN = "tip-in"
+    SNAP = "snap"
+    WRAP_AROUND = "wrap-around"
+    ONE_TIMER = "one-timer"
+    REBOUND = "rebound"
+    BREAKAWAY = "breakaway"
+    PENALTY_SHOT = "penalty-shot"
+    SHOOTOUT = "shootout"
+```
+
+### Goal Modifiers
+```python
+class GoalModifiers(Enum):
+    """Goal modifiers indicating special circumstances"""
+    NONE = "none"
+    EMPTY_NET = "empty-net"
+    POWER_PLAY = "power-play"
+    SHORT_HANDED = "short-handed"
+    GAME_WINNING = "game-winning"
+    OVERTIME = "overtime"
+    SHOOTOUT = "shootout"
+    PENALTY_SHOT = "penalty-shot"
+    OWN_GOAL = "own-goal"
+```
+
+### Penalty Types
+```python
+class PenaltyTypes(Enum):
+    """Common penalty types in NHL events"""
+    # Stick Infractions
+    HOOKING = "hooking"
+    SLASHING = "slashing"
+    TRIPPING = "tripping"
+    HIGH_STICKING = "high-sticking"
+    CROSS_CHECKING = "cross-checking"
+    SPEARING = "spearing"
+    
+    # Body Contact
+    ROUGHING = "roughing"
+    BOARDING = "boarding"
+    CHARGING = "charging"
+    ELBOWING = "elbowing"
+    KNEEING = "kneeing"
+    HEAD_BUTTING = "head-butting"
+    
+    # Interference
+    INTERFERENCE = "interference"
+    GOALIE_INTERFERENCE = "goalie-interference"
+    HOLDING = "holding"
+    HOLDING_STICK = "holding-stick"
+    
+    # Game Flow
+    DELAY_OF_GAME = "delay-of-game"
+    TOO_MANY_MEN = "too-many-men"
+    ILLEGAL_SUBSTITUTION = "illegal-substitution"
+    ILLEGAL_EQUIPMENT = "illegal-equipment"
+    
+    # Fighting and Misconduct
+    FIGHTING = "fighting"
+    MISCONDUCT = "misconduct"
+    GAME_MISCONDUCT = "game-misconduct"
+    MATCH_PENALTY = "match-penalty"
+    GROSS_MISCONDUCT = "gross-misconduct"
+    
+    # Other
+    UNSPORTSMANLIKE_CONDUCT = "unsportsmanlike-conduct"
+    ABUSE_OF_OFFICIALS = "abuse-of-officials"
+    DIVING = "diving"
+    EMBELLISHMENT = "embellishment"
+```
+
+### Zone Codes
+```python
+class ZoneCodes(Enum):
+    """Zone codes for event locations"""
+    OFFENSIVE = "O"  # Offensive zone
+    DEFENSIVE = "D"  # Defensive zone  
+    NEUTRAL = "N"    # Neutral zone
+```
+
+## Event Data Sources
+
+### Primary Sources
+```python
+class EventDataSources:
+    """Data sources for NHL event information"""
+    
+    # Play-by-Play API
+    PLAY_BY_PLAY = {
+        "endpoint": "/gamecenter/{gameId}/play-by-play",
+        "description": "Real-time play-by-play events",
+        "granularity": "event_level",
+        "update_frequency": "real_time",
+        "key_fields": ["eventId", "typeCode", "typeDescKey", "situationCode", "details"]
+    }
+    
+    # Landing Page API
+    LANDING_DATA = {
+        "endpoint": "/gamecenter/{gameId}/landing",
+        "description": "Game summary with goal details",
+        "granularity": "goal_level",
+        "update_frequency": "real_time",
+        "key_fields": ["situationCode", "strength", "shotType", "goalModifier"]
+    }
+    
+    # HTML Reports
+    EVENT_SUMMARY = {
+        "url_pattern": "https://www.nhl.com/scores/htmlreports/{season}/ES{gameId}.HTM",
+        "description": "Detailed event summary report",
+        "granularity": "event_level",
+        "update_frequency": "post_game",
+        "key_fields": ["penalties", "goals", "timeouts", "period_ends"]
+    }
+    
+    # Shift Charts
+    SHIFT_CHARTS = {
+        "url_pattern": "https://www.nhl.com/stats/shiftcharts?id={gameId}",
+        "description": "Player shift timing and events",
+        "granularity": "shift_level",
+        "update_frequency": "real_time",
+        "key_fields": ["player_id", "start_time", "end_time", "duration", "period"]
+    }
+```
+
+## Event Analysis and Processing
+
+### Event Aggregation
+```python
+class EventAggregator:
+    """Aggregates events for analysis and statistics"""
+    
+    def __init__(self, game_id: int):
+        self.game_id = game_id
+        self.events = []
+    
+    async def load_events(self):
+        """Load all events for a game"""
+        # Load play-by-play data
+        play_by_play = await self.get_play_by_play()
+        
+        # Load landing data for goal details
+        landing_data = await self.get_landing_data()
+        
+        # Merge and process events
+        self.events = self.merge_event_data(play_by_play, landing_data)
+    
+    def get_events_by_type(self, event_type: int) -> List[NHLEvent]:
+        """Get all events of a specific type"""
+        return [event for event in self.events if event.type_code == event_type]
+    
+    def get_events_by_situation(self, situation_code: str) -> List[NHLEvent]:
+        """Get all events in a specific game situation"""
+        return [event for event in self.events if event.situation_code == situation_code]
+    
+    def get_events_by_player(self, player_id: int) -> List[NHLEvent]:
+        """Get all events involving a specific player"""
+        player_events = []
+        for event in self.events:
+            if event.details:
+                # Check various player fields in details
+                if (event.details.get('playerId') == player_id or
+                    event.details.get('winningPlayerId') == player_id or
+                    event.details.get('losingPlayerId') == player_id or
+                    event.details.get('blockingPlayerId') == player_id or
+                    event.details.get('drawnBy') == player_id):
+                    player_events.append(event)
+        return player_events
+    
+    def get_events_by_period(self, period: int) -> List[NHLEvent]:
+        """Get all events in a specific period"""
+        return [event for event in self.events 
+                if event.period_descriptor.get('number') == period]
+    
+    def get_events_by_time_range(self, start_time: str, end_time: str) -> List[NHLEvent]:
+        """Get events within a specific time range"""
+        # Convert time strings to seconds for comparison
+        start_seconds = self.time_to_seconds(start_time)
+        end_seconds = self.time_to_seconds(end_time)
+        
+        return [event for event in self.events 
+                if start_seconds <= self.time_to_seconds(event.time_in_period) <= end_seconds]
+    
+    def get_shot_events(self) -> List[NHLEvent]:
+        """Get all shot-related events"""
+        shot_types = [506, 507, 508, 505]  # shot-on-goal, missed-shot, blocked-shot, goal
+        return [event for event in self.events if event.type_code in shot_types]
+    
+    def get_penalty_events(self) -> List[NHLEvent]:
+        """Get all penalty events"""
+        return self.get_events_by_type(509)
+    
+    def get_faceoff_events(self) -> List[NHLEvent]:
+        """Get all faceoff events"""
+        return self.get_events_by_type(502)
+    
+    def get_hit_events(self) -> List[NHLEvent]:
+        """Get all hit events"""
+        return self.get_events_by_type(503)
+    
+    def get_possession_events(self) -> List[NHLEvent]:
+        """Get all possession change events"""
+        possession_types = [504, 525]  # giveaway, takeaway
+        return [event for event in self.events if event.type_code in possession_types]
+```
+
+### Event Statistics
+```python
+class EventStatistics:
+    """Calculate statistics from event data"""
+    
+    def __init__(self, events: List[NHLEvent]):
+        self.events = events
+    
+    def count_events_by_type(self) -> Dict[int, int]:
+        """Count events by type code"""
+        counts = {}
+        for event in self.events:
+            counts[event.type_code] = counts.get(event.type_code, 0) + 1
+        return counts
+    
+    def count_events_by_situation(self) -> Dict[str, int]:
+        """Count events by situation code"""
+        counts = {}
+        for event in self.events:
+            counts[event.situation_code] = counts.get(event.situation_code, 0) + 1
+        return counts
+    
+    def count_events_by_player(self) -> Dict[int, Dict[int, int]]:
+        """Count events by player and type"""
+        player_counts = {}
+        for event in self.events:
+            if event.details:
+                player_id = event.details.get('playerId')
+                if player_id:
+                    if player_id not in player_counts:
+                        player_counts[player_id] = {}
+                    player_counts[player_id][event.type_code] = player_counts[player_id].get(event.type_code, 0) + 1
+        return player_counts
+    
+    def calculate_shot_metrics(self) -> Dict[str, Any]:
+        """Calculate shot-related metrics"""
+        shots_on_goal = len([e for e in self.events if e.type_code == 506])
+        missed_shots = len([e for e in self.events if e.type_code == 507])
+        blocked_shots = len([e for e in self.events if e.type_code == 508])
+        goals = len([e for e in self.events if e.type_code == 505])
+        
+        total_shots = shots_on_goal + missed_shots + blocked_shots
+        shooting_percentage = (goals / shots_on_goal * 100) if shots_on_goal > 0 else 0
+        
+        return {
+            "shots_on_goal": shots_on_goal,
+            "missed_shots": missed_shots,
+            "blocked_shots": blocked_shots,
+            "goals": goals,
+            "total_shots": total_shots,
+            "shooting_percentage": shooting_percentage
+        }
+    
+    def calculate_penalty_metrics(self) -> Dict[str, Any]:
+        """Calculate penalty-related metrics"""
+        penalties = self.get_events_by_type(509)
+        total_penalty_minutes = sum(
+            p.details.get('penaltyMinutes', 0) for p in penalties if p.details
+        )
+        
+        penalty_types = {}
+        for penalty in penalties:
+            if penalty.details:
+                penalty_code = penalty.details.get('penaltyCode', 'unknown')
+                penalty_types[penalty_code] = penalty_types.get(penalty_code, 0) + 1
+        
+        return {
+            "total_penalties": len(penalties),
+            "total_penalty_minutes": total_penalty_minutes,
+            "penalty_types": penalty_types
+        }
+    
+    def calculate_faceoff_metrics(self) -> Dict[str, Any]:
+        """Calculate faceoff-related metrics"""
+        faceoffs = self.get_events_by_type(502)
+        
+        faceoff_wins = {}
+        faceoff_losses = {}
+        
+        for faceoff in faceoffs:
+            if faceoff.details:
+                winner = faceoff.details.get('winningPlayerId')
+                loser = faceoff.details.get('losingPlayerId')
+                
+                if winner:
+                    faceoff_wins[winner] = faceoff_wins.get(winner, 0) + 1
+                if loser:
+                    faceoff_losses[loser] = faceoff_losses.get(loser, 0) + 1
+        
+        return {
+            "total_faceoffs": len(faceoffs),
+            "faceoff_wins": faceoff_wins,
+            "faceoff_losses": faceoff_losses
+        }
+```
+
+## Event Data Quality and Validation
+
+### Validation Rules
+```python
+class EventValidator:
+    """Validates event data quality and consistency"""
+    
+    def __init__(self, events: List[NHLEvent]):
+        self.events = events
+    
+    def validate_event_sequence(self) -> List[str]:
+        """Validate event sequence and timing"""
+        errors = []
+        
+        for i in range(1, len(self.events)):
+            prev_event = self.events[i-1]
+            curr_event = self.events[i]
+            
+            # Check if events are in chronological order
+            if self.time_to_seconds(curr_event.time_in_period) < self.time_to_seconds(prev_event.time_in_period):
+                errors.append(f"Event {curr_event.event_id} occurs before event {prev_event.event_id}")
+            
+            # Check for duplicate event IDs
+            if curr_event.event_id == prev_event.event_id:
+                errors.append(f"Duplicate event ID: {curr_event.event_id}")
+        
+        return errors
+    
+    def validate_required_fields(self) -> List[str]:
+        """Validate required fields are present"""
+        errors = []
+        
+        for event in self.events:
+            if not event.event_id:
+                errors.append(f"Missing event_id for event")
+            if not event.type_code:
+                errors.append(f"Missing type_code for event {event.event_id}")
+            if not event.situation_code:
+                errors.append(f"Missing situation_code for event {event.event_id}")
+        
+        return errors
+    
+    def validate_event_details(self) -> List[str]:
+        """Validate event-specific details"""
+        errors = []
+        
+        for event in self.events:
+            if event.type_code == 505:  # Goal
+                if not event.details or not event.details.get('playerId'):
+                    errors.append(f"Goal event {event.event_id} missing scorer")
+            
+            elif event.type_code == 502:  # Faceoff
+                if not event.details or not event.details.get('winningPlayerId'):
+                    errors.append(f"Faceoff event {event.event_id} missing winner")
+            
+            elif event.type_code == 509:  # Penalty
+                if not event.details or not event.details.get('playerId'):
+                    errors.append(f"Penalty event {event.event_id} missing penalized player")
+        
+        return errors
+    
+    def validate_situation_consistency(self) -> List[str]:
+        """Validate situation code consistency"""
+        errors = []
+        
+        # Check for impossible situation transitions
+        for i in range(1, len(self.events)):
+            prev_situation = self.events[i-1].situation_code
+            curr_situation = self.events[i].situation_code
+            
+            # Validate situation code format (4 digits)
+            if not curr_situation.isdigit() or len(curr_situation) != 4:
+                errors.append(f"Invalid situation code format: {curr_situation}")
+        
+        return errors
+```
+
+## Implementation Examples
+
+### Event Processing Pipeline
+```python
+class EventProcessingPipeline:
+    """Complete event processing pipeline"""
+    
+    def __init__(self, game_id: int):
+        self.game_id = game_id
+        self.aggregator = EventAggregator(game_id)
+        self.statistics = None
+        self.validator = None
+    
+    async def process_game_events(self) -> Dict[str, Any]:
+        """Process all events for a game"""
+        
+        # Load events
+        await self.aggregator.load_events()
+        
+        # Validate events
+        self.validator = EventValidator(self.aggregator.events)
+        validation_errors = (
+            self.validator.validate_event_sequence() +
+            self.validator.validate_required_fields() +
+            self.validator.validate_event_details() +
+            self.validator.validate_situation_consistency()
+        )
+        
+        # Calculate statistics
+        self.statistics = EventStatistics(self.aggregator.events)
+        
+        return {
+            "game_id": self.game_id,
+            "total_events": len(self.aggregator.events),
+            "validation_errors": validation_errors,
+            "event_counts": self.statistics.count_events_by_type(),
+            "situation_counts": self.statistics.count_events_by_situation(),
+            "shot_metrics": self.statistics.calculate_shot_metrics(),
+            "penalty_metrics": self.statistics.calculate_penalty_metrics(),
+            "faceoff_metrics": self.statistics.calculate_faceoff_metrics()
+        }
+    
+    def get_player_event_summary(self, player_id: int) -> Dict[str, Any]:
+        """Get event summary for a specific player"""
+        player_events = self.aggregator.get_events_by_player(player_id)
+        
+        return {
+            "player_id": player_id,
+            "total_events": len(player_events),
+            "event_types": self.statistics.count_events_by_type(),
+            "goals": len([e for e in player_events if e.type_code == 505]),
+            "assists": len([e for e in player_events if e.type_code == 505 and e.details and player_id in [a.get('playerId') for a in e.details.get('assists', [])]]),
+            "shots": len([e for e in player_events if e.type_code == 506]),
+            "hits": len([e for e in player_events if e.type_code == 503]),
+            "penalties": len([e for e in player_events if e.type_code == 509])
+        }
+```
+
+## Conclusion
+
+This comprehensive documentation of NHL API event codes provides the foundation for understanding and processing granular game data. The event codes enable detailed analysis of player performance, game flow, and situational effectiveness across all NHL datasets.
+
+The structured approach to event processing, validation, and statistics calculation ensures data quality and enables sophisticated analytics for player evaluation and game analysis.
+description:
+globs:
+alwaysApply: true
+---

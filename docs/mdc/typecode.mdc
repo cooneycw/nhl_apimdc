@@ -1,0 +1,637 @@
+# NHL API Type Codes
+
+## Overview
+
+This document provides comprehensive documentation of all type codes (`typeCode`) found within NHL API datasets, particularly in play-by-play data. Type codes are integer identifiers that categorize different types of game events and actions. These codes are essential for filtering, analyzing, and processing NHL game data at the most granular level.
+
+## Type Code Structure
+
+### Core Type Code Fields
+```python
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
+from enum import IntEnum
+
+@dataclass
+class NHLTypeCode:
+    """NHL type code structure"""
+    type_code: int
+    type_desc_key: str
+    category: str
+    description: str
+    details_schema: Optional[Dict[str, Any]] = None
+    examples: Optional[List[Dict[str, Any]]] = None
+```
+
+## Type Code Categories
+
+### Game Flow Events (520-535 Series)
+
+#### Period Management
+```python
+class GameFlowTypeCodes(IntEnum):
+    """Game flow and period management type codes"""
+    PERIOD_START = 520
+    PERIOD_END = 521
+    GAME_END = 524
+    STOPPAGE = 516
+    DELAYED_PENALTY = 535
+
+# Type Code: 520 - Period Start
+# Description: "period-start"
+# Category: Game Flow
+# Context: Marks the beginning of a period (1st, 2nd, 3rd, OT)
+# Details: None
+# Example: {"eventId": 9, "typeCode": 520, "typeDescKey": "period-start", "situationCode": "1551"}
+
+# Type Code: 521 - Period End
+# Description: "period-end"
+# Category: Game Flow
+# Context: Marks the end of a period
+# Details: None
+# Example: {"eventId": 10, "typeCode": 521, "typeDescKey": "period-end", "situationCode": "1551"}
+
+# Type Code: 524 - Game End
+# Description: "game-end"
+# Category: Game Flow
+# Context: Marks the end of the game (regulation, OT, or shootout)
+# Details: None
+# Example: {"eventId": 11, "typeCode": 524, "typeDescKey": "game-end", "situationCode": "1551"}
+
+# Type Code: 516 - Stoppage
+# Description: "stoppage"
+# Category: Game Flow
+# Context: Play stoppage (whistle, timeout, icing, offside, etc.)
+# Details: None
+# Example: {"eventId": 12, "typeCode": 516, "typeDescKey": "stoppage", "situationCode": "1551"}
+
+# Type Code: 535 - Delayed Penalty
+# Description: "delayed-penalty"
+# Category: Game Flow
+# Context: Delayed penalty situation (penalty called but play continues)
+# Details: None
+# Example: {"eventId": 13, "typeCode": 535, "typeDescKey": "delayed-penalty", "situationCode": "1551"}
+```
+
+### Player Action Events (502-509, 525 Series)
+
+#### Possession and Control
+```python
+class PlayerActionTypeCodes(IntEnum):
+    """Player action and interaction type codes"""
+    FACEOFF = 502
+    HIT = 503
+    GIVEAWAY = 504
+    TAKEAWAY = 525
+    GOAL = 505
+    SHOT_ON_GOAL = 506
+    MISSED_SHOT = 507
+    BLOCKED_SHOT = 508
+    PENALTY = 509
+
+# Type Code: 502 - Faceoff
+# Description: "faceoff"
+# Category: Player Action
+# Context: Faceoff event at center ice or in zones
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "losingPlayerId": int,
+#   "winningPlayerId": int,
+#   "xCoord": int,
+#   "yCoord": int,
+#   "zoneCode": str  # "O", "D", "N" (Offensive, Defensive, Neutral)
+# }
+# Example: {"eventId": 8, "typeCode": 502, "typeDescKey": "faceoff", "details": {"winningPlayerId": 8478445, "losingPlayerId": 8484144, "zoneCode": "N"}}
+
+# Type Code: 503 - Hit
+# Description: "hit"
+# Category: Player Action
+# Context: Player hit/body check
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player delivering hit
+#   "xCoord": int,
+#   "yCoord": int
+# }
+# Example: {"eventId": 68, "typeCode": 503, "typeDescKey": "hit", "details": {"playerId": 8478403}}
+
+# Type Code: 504 - Giveaway
+# Description: "giveaway"
+# Category: Player Action
+# Context: Player gives away possession (turnover)
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player committing giveaway
+#   "xCoord": int,
+#   "yCoord": int
+# }
+# Example: {"eventId": 56, "typeCode": 504, "typeDescKey": "giveaway", "details": {"playerId": 8484144}}
+
+# Type Code: 525 - Takeaway
+# Description: "takeaway"
+# Category: Player Action
+# Context: Player takes away possession (steals puck)
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player with takeaway
+#   "xCoord": int,
+#   "yCoord": int
+# }
+# Example: {"eventId": 66, "typeCode": 525, "typeDescKey": "takeaway", "details": {"playerId": 8484144}}
+```
+
+#### Shooting Events
+```python
+class ShootingTypeCodes(IntEnum):
+    """Shooting-related type codes"""
+    GOAL = 505
+    SHOT_ON_GOAL = 506
+    MISSED_SHOT = 507
+    BLOCKED_SHOT = 508
+
+# Type Code: 505 - Goal
+# Description: "goal"
+# Category: Shooting
+# Context: Goal scored
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Goal scorer
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str,  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+#   "goalModifier": str,  # "none", "empty-net", "power-play", "short-handed", etc.
+#   "assists": List[Dict[str, Any]]  # Assist details
+# }
+# Example: {"eventId": 265, "typeCode": 505, "typeDescKey": "goal", "details": {"playerId": 8481624, "shotType": "wrist", "goalModifier": "none"}}
+
+# Type Code: 506 - Shot on Goal
+# Description: "shot-on-goal"
+# Category: Shooting
+# Context: Shot on goal (saved or goal)
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Shooter
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str,  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+#   "goalieId": int  # Goalie who made save (if applicable)
+# }
+# Example: {"eventId": 67, "typeCode": 506, "typeDescKey": "shot-on-goal", "details": {"playerId": 8484144, "shotType": "wrist"}}
+
+# Type Code: 507 - Missed Shot
+# Description: "missed-shot"
+# Category: Shooting
+# Context: Shot that missed the net
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Shooter
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str,  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+#   "missedNet": str  # "wide", "over", "post", "crossbar"
+# }
+# Example: {"eventId": 58, "typeCode": 507, "typeDescKey": "missed-shot", "details": {"playerId": 8484144, "shotType": "wrist", "missedNet": "wide"}}
+
+# Type Code: 508 - Blocked Shot
+# Description: "blocked-shot"
+# Category: Shooting
+# Context: Shot blocked by opposing player
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Shooter
+#   "blockingPlayerId": int,  # Player who blocked the shot
+#   "xCoord": int,
+#   "yCoord": int,
+#   "shotType": str  # "wrist", "slap", "backhand", "deflection", "tip-in", etc.
+# }
+# Example: {"eventId": 57, "typeCode": 508, "typeDescKey": "blocked-shot", "details": {"playerId": 8484144, "blockingPlayerId": 8478403}}
+```
+
+#### Penalty Events
+```python
+class PenaltyTypeCodes(IntEnum):
+    """Penalty-related type codes"""
+    PENALTY = 509
+
+# Type Code: 509 - Penalty
+# Description: "penalty"
+# Category: Penalty
+# Context: Penalty called
+# Details: {
+#   "eventOwnerTeamId": int,
+#   "playerId": int,  # Player penalized
+#   "penaltyMinutes": int,
+#   "penaltySeverity": str,  # "minor", "major", "misconduct", "game-misconduct", "match"
+#   "penaltyCode": str,  # "hooking", "tripping", "slashing", "roughing", etc.
+#   "drawnBy": int  # Player who drew the penalty (if applicable)
+# }
+# Example: {"eventId": 666, "typeCode": 509, "typeDescKey": "penalty", "details": {"playerId": 8484144, "penaltyMinutes": 2, "penaltyCode": "hooking"}}
+```
+
+## Type Code Reference Table
+
+### Complete Type Code Mapping
+```python
+class NHLTypeCodeRegistry:
+    """Complete registry of all NHL type codes"""
+    
+    TYPE_CODES = {
+        # Game Flow Events
+        516: NHLTypeCode(516, "stoppage", "Game Flow", "Play stoppage (whistle, timeout, etc.)"),
+        520: NHLTypeCode(520, "period-start", "Game Flow", "Period start"),
+        521: NHLTypeCode(521, "period-end", "Game Flow", "Period end"),
+        524: NHLTypeCode(524, "game-end", "Game Flow", "Game end"),
+        535: NHLTypeCode(535, "delayed-penalty", "Game Flow", "Delayed penalty situation"),
+        
+        # Player Action Events
+        502: NHLTypeCode(502, "faceoff", "Player Action", "Faceoff event"),
+        503: NHLTypeCode(503, "hit", "Player Action", "Player hit/body check"),
+        504: NHLTypeCode(504, "giveaway", "Player Action", "Player gives away possession"),
+        525: NHLTypeCode(525, "takeaway", "Player Action", "Player takes away possession"),
+        
+        # Shooting Events
+        505: NHLTypeCode(505, "goal", "Shooting", "Goal scored"),
+        506: NHLTypeCode(506, "shot-on-goal", "Shooting", "Shot on goal"),
+        507: NHLTypeCode(507, "missed-shot", "Shooting", "Shot that missed the net"),
+        508: NHLTypeCode(508, "blocked-shot", "Shooting", "Shot blocked by opposing player"),
+        
+        # Penalty Events
+        509: NHLTypeCode(509, "penalty", "Penalty", "Penalty called")
+    }
+    
+    @classmethod
+    def get_type_code(cls, type_code: int) -> Optional[NHLTypeCode]:
+        """Get type code information by code"""
+        return cls.TYPE_CODES.get(type_code)
+    
+    @classmethod
+    def get_type_codes_by_category(cls, category: str) -> List[NHLTypeCode]:
+        """Get all type codes in a specific category"""
+        return [tc for tc in cls.TYPE_CODES.values() if tc.category == category]
+    
+    @classmethod
+    def get_all_type_codes(cls) -> List[NHLTypeCode]:
+        """Get all type codes sorted by code"""
+        return sorted(cls.TYPE_CODES.values(), key=lambda x: x.type_code)
+```
+
+## Type Code Analysis and Processing
+
+### Type Code Aggregation
+```python
+class TypeCodeAnalyzer:
+    """Analyzes type codes for patterns and statistics"""
+    
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+    
+    def count_by_type_code(self) -> Dict[int, int]:
+        """Count events by type code"""
+        counts = {}
+        for event in self.events:
+            type_code = event.get('typeCode')
+            if type_code:
+                counts[type_code] = counts.get(type_code, 0) + 1
+        return counts
+    
+    def count_by_category(self) -> Dict[str, int]:
+        """Count events by category"""
+        category_counts = {}
+        for event in self.events:
+            type_code = event.get('typeCode')
+            if type_code:
+                type_info = NHLTypeCodeRegistry.get_type_code(type_code)
+                if type_info:
+                    category_counts[type_info.category] = category_counts.get(type_info.category, 0) + 1
+        return category_counts
+    
+    def get_most_common_type_codes(self, limit: int = 10) -> List[tuple]:
+        """Get most common type codes"""
+        counts = self.count_by_type_code()
+        return sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+    
+    def get_type_code_timeline(self) -> List[Dict[str, Any]]:
+        """Get timeline of type codes with timestamps"""
+        timeline = []
+        for event in self.events:
+            if 'typeCode' in event and 'timeInPeriod' in event:
+                timeline.append({
+                    'typeCode': event['typeCode'],
+                    'timeInPeriod': event['timeInPeriod'],
+                    'period': event.get('periodDescriptor', {}).get('number'),
+                    'description': NHLTypeCodeRegistry.get_type_code(event['typeCode']).description if NHLTypeCodeRegistry.get_type_code(event['typeCode']) else 'Unknown'
+                })
+        return timeline
+    
+    def analyze_type_code_patterns(self) -> Dict[str, Any]:
+        """Analyze patterns in type code usage"""
+        counts = self.count_by_type_code()
+        categories = self.count_by_category()
+        
+        # Calculate percentages
+        total_events = sum(counts.values())
+        type_code_percentages = {code: (count / total_events * 100) for code, count in counts.items()}
+        category_percentages = {cat: (count / total_events * 100) for cat, count in categories.items()}
+        
+        return {
+            'total_events': total_events,
+            'type_code_counts': counts,
+            'type_code_percentages': type_code_percentages,
+            'category_counts': categories,
+            'category_percentages': category_percentages,
+            'most_common': self.get_most_common_type_codes(5)
+        }
+```
+
+### Type Code Filtering and Querying
+```python
+class TypeCodeFilter:
+    """Filters and queries events by type codes"""
+    
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+    
+    def filter_by_type_code(self, type_code: int) -> List[Dict[str, Any]]:
+        """Filter events by specific type code"""
+        return [event for event in self.events if event.get('typeCode') == type_code]
+    
+    def filter_by_category(self, category: str) -> List[Dict[str, Any]]:
+        """Filter events by category"""
+        filtered_events = []
+        for event in self.events:
+            type_code = event.get('typeCode')
+            if type_code:
+                type_info = NHLTypeCodeRegistry.get_type_code(type_code)
+                if type_info and type_info.category == category:
+                    filtered_events.append(event)
+        return filtered_events
+    
+    def filter_by_multiple_type_codes(self, type_codes: List[int]) -> List[Dict[str, Any]]:
+        """Filter events by multiple type codes"""
+        return [event for event in self.events if event.get('typeCode') in type_codes]
+    
+    def filter_shooting_events(self) -> List[Dict[str, Any]]:
+        """Filter all shooting-related events"""
+        shooting_codes = [505, 506, 507, 508]  # goal, shot-on-goal, missed-shot, blocked-shot
+        return self.filter_by_multiple_type_codes(shooting_codes)
+    
+    def filter_possession_events(self) -> List[Dict[str, Any]]:
+        """Filter possession change events"""
+        possession_codes = [504, 525]  # giveaway, takeaway
+        return self.filter_by_multiple_type_codes(possession_codes)
+    
+    def filter_penalty_events(self) -> List[Dict[str, Any]]:
+        """Filter penalty events"""
+        return self.filter_by_type_code(509)
+    
+    def filter_faceoff_events(self) -> List[Dict[str, Any]]:
+        """Filter faceoff events"""
+        return self.filter_by_type_code(502)
+    
+    def filter_hit_events(self) -> List[Dict[str, Any]]:
+        """Filter hit events"""
+        return self.filter_by_type_code(503)
+```
+
+## Type Code Validation and Quality Control
+
+### Validation Rules
+```python
+class TypeCodeValidator:
+    """Validates type code data quality and consistency"""
+    
+    def __init__(self, events: List[Dict[str, Any]]):
+        self.events = events
+    
+    def validate_type_code_presence(self) -> List[str]:
+        """Validate that all events have type codes"""
+        errors = []
+        for i, event in enumerate(self.events):
+            if 'typeCode' not in event:
+                errors.append(f"Event {i} missing typeCode")
+            elif event['typeCode'] is None:
+                errors.append(f"Event {i} has null typeCode")
+        return errors
+    
+    def validate_type_code_values(self) -> List[str]:
+        """Validate that type codes are valid"""
+        errors = []
+        valid_codes = set(NHLTypeCodeRegistry.TYPE_CODES.keys())
+        
+        for i, event in enumerate(self.events):
+            type_code = event.get('typeCode')
+            if type_code is not None and type_code not in valid_codes:
+                errors.append(f"Event {i} has invalid typeCode: {type_code}")
+        
+        return errors
+    
+    def validate_type_code_description_consistency(self) -> List[str]:
+        """Validate that type codes have consistent descriptions"""
+        errors = []
+        type_code_descriptions = {}
+        
+        for i, event in enumerate(self.events):
+            type_code = event.get('typeCode')
+            desc_key = event.get('typeDescKey')
+            
+            if type_code and desc_key:
+                if type_code in type_code_descriptions:
+                    if type_code_descriptions[type_code] != desc_key:
+                        errors.append(f"Event {i} has inconsistent description for typeCode {type_code}: expected '{type_code_descriptions[type_code]}', got '{desc_key}'")
+                else:
+                    type_code_descriptions[type_code] = desc_key
+        
+        return errors
+    
+    def validate_type_code_details(self) -> List[str]:
+        """Validate that type codes have appropriate details"""
+        errors = []
+        
+        for i, event in enumerate(self.events):
+            type_code = event.get('typeCode')
+            details = event.get('details', {})
+            
+            if type_code == 505:  # Goal
+                if not details.get('playerId'):
+                    errors.append(f"Goal event {i} missing playerId in details")
+            
+            elif type_code == 502:  # Faceoff
+                if not details.get('winningPlayerId'):
+                    errors.append(f"Faceoff event {i} missing winningPlayerId in details")
+            
+            elif type_code == 509:  # Penalty
+                if not details.get('playerId'):
+                    errors.append(f"Penalty event {i} missing playerId in details")
+                if not details.get('penaltyMinutes'):
+                    errors.append(f"Penalty event {i} missing penaltyMinutes in details")
+        
+        return errors
+    
+    def run_all_validations(self) -> Dict[str, List[str]]:
+        """Run all validation checks"""
+        return {
+            'missing_type_codes': self.validate_type_code_presence(),
+            'invalid_type_codes': self.validate_type_code_values(),
+            'inconsistent_descriptions': self.validate_type_code_description_consistency(),
+            'missing_details': self.validate_type_code_details()
+        }
+```
+
+## Type Code Integration with Other Systems
+
+### Integration with Event System
+```python
+class TypeCodeEventIntegration:
+    """Integrates type codes with the broader event system"""
+    
+    @staticmethod
+    def create_event_from_type_code(type_code: int, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create standardized event from type code data"""
+        type_info = NHLTypeCodeRegistry.get_type_code(type_code)
+        
+        if not type_info:
+            raise ValueError(f"Unknown type code: {type_code}")
+        
+        return {
+            'event_id': event_data.get('eventId'),
+            'type_code': type_code,
+            'type_description': type_info.description,
+            'category': type_info.category,
+            'timestamp': event_data.get('timeInPeriod'),
+            'period': event_data.get('periodDescriptor', {}).get('number'),
+            'situation_code': event_data.get('situationCode'),
+            'details': event_data.get('details', {}),
+            'raw_data': event_data
+        }
+    
+    @staticmethod
+    def categorize_events_by_type_code(events: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Categorize events by type code category"""
+        categorized = {}
+        
+        for event in events:
+            type_code = event.get('typeCode')
+            if type_code:
+                type_info = NHLTypeCodeRegistry.get_type_code(type_code)
+                if type_info:
+                    category = type_info.category
+                    if category not in categorized:
+                        categorized[category] = []
+                    categorized[category].append(event)
+        
+        return categorized
+```
+
+### Integration with Situation Codes
+```python
+class TypeCodeSituationIntegration:
+    """Integrates type codes with situation codes"""
+    
+    @staticmethod
+    def analyze_type_codes_by_situation(events: List[Dict[str, Any]]) -> Dict[str, Dict[int, int]]:
+        """Analyze type code distribution by situation code"""
+        situation_analysis = {}
+        
+        for event in events:
+            situation_code = event.get('situationCode')
+            type_code = event.get('typeCode')
+            
+            if situation_code and type_code:
+                if situation_code not in situation_analysis:
+                    situation_analysis[situation_code] = {}
+                
+                situation_analysis[situation_code][type_code] = situation_analysis[situation_code].get(type_code, 0) + 1
+        
+        return situation_analysis
+    
+    @staticmethod
+    def get_situation_specific_type_codes(events: List[Dict[str, Any]], situation_code: str) -> Dict[int, int]:
+        """Get type code distribution for a specific situation"""
+        situation_events = [e for e in events if e.get('situationCode') == situation_code]
+        type_code_counts = {}
+        
+        for event in situation_events:
+            type_code = event.get('typeCode')
+            if type_code:
+                type_code_counts[type_code] = type_code_counts.get(type_code, 0) + 1
+        
+        return type_code_counts
+```
+
+## Implementation Examples
+
+### Type Code Processing Pipeline
+```python
+class TypeCodeProcessingPipeline:
+    """Complete type code processing pipeline"""
+    
+    def __init__(self, game_id: int):
+        self.game_id = game_id
+        self.events = []
+        self.analyzer = None
+        self.filter = None
+        self.validator = None
+    
+    async def load_and_process_events(self):
+        """Load events and initialize processing components"""
+        # Load play-by-play data
+        play_by_play = await self.get_play_by_play_data()
+        self.events = play_by_play.get('plays', [])
+        
+        # Initialize components
+        self.analyzer = TypeCodeAnalyzer(self.events)
+        self.filter = TypeCodeFilter(self.events)
+        self.validator = TypeCodeValidator(self.events)
+    
+    def generate_type_code_report(self) -> Dict[str, Any]:
+        """Generate comprehensive type code analysis report"""
+        if not self.analyzer:
+            raise RuntimeError("Events not loaded. Call load_and_process_events() first.")
+        
+        validation_results = self.validator.run_all_validations()
+        
+        return {
+            'game_id': self.game_id,
+            'total_events': len(self.events),
+            'type_code_analysis': self.analyzer.analyze_type_code_patterns(),
+            'validation_results': validation_results,
+            'validation_passed': all(len(errors) == 0 for errors in validation_results.values()),
+            'type_code_timeline': self.analyzer.get_type_code_timeline(),
+            'categorized_events': TypeCodeEventIntegration.categorize_events_by_type_code(self.events)
+        }
+    
+    def get_player_type_code_summary(self, player_id: int) -> Dict[str, Any]:
+        """Get type code summary for a specific player"""
+        player_events = []
+        
+        for event in self.events:
+            details = event.get('details', {})
+            if (details.get('playerId') == player_id or
+                details.get('winningPlayerId') == player_id or
+                details.get('losingPlayerId') == player_id or
+                details.get('blockingPlayerId') == player_id or
+                details.get('drawnBy') == player_id):
+                player_events.append(event)
+        
+        player_analyzer = TypeCodeAnalyzer(player_events)
+        
+        return {
+            'player_id': player_id,
+            'total_events': len(player_events),
+            'type_code_counts': player_analyzer.count_by_type_code(),
+            'category_counts': player_analyzer.count_by_category(),
+            'most_common_actions': player_analyzer.get_most_common_type_codes(5)
+        }
+```
+
+## Conclusion
+
+This comprehensive documentation of NHL API type codes provides the foundation for understanding and processing granular game events. Type codes serve as the primary categorization system for all NHL game events, enabling sophisticated filtering, analysis, and statistical processing.
+
+The structured approach to type code processing, validation, and integration ensures data quality and enables advanced analytics for player evaluation, game analysis, and performance tracking across all NHL datasets.
+
+Type codes are fundamental to the NHL API data structure and are essential for any system that processes NHL game data at the event level.
+description:
+globs:
+alwaysApply: true
+---

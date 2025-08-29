@@ -1,0 +1,67 @@
+---
+description: "NHL API Python client project configuration and goals"
+globs: ["**/*.py", "**/*.md", "pyproject.toml", "README.md"]
+alwaysApply: true
+---
+
+# NHL API MDC Project
+
+## Project Overview
+This project aims to create a comprehensive interface for the NHL API, providing easy access to hockey data including teams, players, games, and statistics.
+
+## Project Goals
+- Create a clean, well-documented API wrapper for NHL data
+- Provide type-safe interfaces for all NHL API endpoints
+- Implement caching and rate limiting for optimal performance
+- Build a user-friendly interface for accessing hockey statistics
+- Support real-time game data and historical statistics
+
+## Technology Stack
+- **Language**: Python 3.11+
+- **Runtime**: Python
+- **Package Manager**: uv
+- **Testing**: pytest
+- **Documentation**: Sphinx + README
+- **Linting**: ruff
+- **Formatting**: black
+- **Type Checking**: mypy
+
+## Project Structure
+```
+nhl_apimdc/
+├── src/
+│   ├── nhl_api/       # Main package
+│   │   ├── __init__.py
+│   │   ├── client.py  # Main API client
+│   │   ├── endpoints/ # API endpoint modules
+│   │   ├── models/    # Pydantic models
+│   │   ├── utils/     # Utility functions
+│   │   └── exceptions.py # Custom exceptions
+├── tests/             # Test files
+├── docs/              # Documentation
+│   └── mdc/           # Model-Driven Configuration files
+├── examples/          # Usage examples
+├── pyproject.toml     # Project configuration
+├── .ruff.toml        # Ruff configuration
+├── .mypy.ini         # MyPy configuration
+└── README.md
+```
+
+## Development Phases
+1. **Phase 1**: Basic API client setup and core endpoints
+2. **Phase 2**: Type definitions and error handling
+3. **Phase 3**: Caching and rate limiting
+4. **Phase 4**: Advanced features and optimizations
+5. **Phase 5**: Documentation and examples
+
+## Success Criteria
+- [ ] All major NHL API endpoints are implemented
+- [ ] TypeScript types are complete and accurate
+- [ ] Comprehensive test coverage (>90%)
+- [ ] Well-documented API with examples
+- [ ] Performance optimizations implemented
+- [ ] Published to npm registry
+description:
+globs:
+alwaysApply: true
+---
